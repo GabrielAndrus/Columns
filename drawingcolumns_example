@@ -1,0 +1,52 @@
+
+.data
+displayaddress:     .word       0x10008000 # Initializes the bitmap address, send everything TO bitmap.
+ADDR_KBRD: .word 0xffff0000 # Initialize keyboard address
+col_x: .word 16 # starting x coordinate
+col_y: .word 0 # y coordinate of the upper pixel
+order: .word 1, 2, 3 # Colors: upper pixel, middle pixel, lower pixel
+# thinking of how to keep track of columns and pixels within columns.
+
+.text
+lw $t0, displayaddress # $t0 = base address for display
+lw $t9, ADDR_KBRD # $t9 = base address for keyboard
+li $v0, 32 # Set return value 32
+li $a0, 1 
+syscall
+lw $t4, col_x
+lw $t5, col_y
+li $v0, 42 # $t1 = random color
+li $a0, 0 # $a0 = another random color
+li $a1, 16 # $a1 = yet ANOTHER random color
+syscall
+
+
+# Draws a column.
+draw_column:
+  
+jal draw_pixel # Draw upper pixel
+sw $a0, 0($t8) # Set upper pixel color
+addi $t5, $t5, 1 # middle pixel at (col_x, col_y + 1)
+jal draw_pixel # Draw middle pixel
+sw $t1, 0($t8) # Set middle pixel color
+addi $t5, $t5, 1 # set lower pixel at (col_x, col_y + 2)
+jal draw_pixel # Draw lower pixel
+sw $a1, 0($t8) # Set lower_pixel color
+
+li $v0, 10 # Load 10 into register $v0.
+syscall # Syscall.
+
+# Draws a pixel.
+draw_pixel:
+  
+li $t6, 32 # load 256 into $t6.
+mult $t5, $t6 # Multiply col_y and 256
+mflo $t7
+add $t7, $t4, $t7 # Add $t7: (col_y * 256) + col_x
+sll $t7, $t7, 2 # Multiply by 4
+add $t8, $t7, $t0 # Add the above offset to the displayAddress to determine where to write the pixel on the bitmap.
+#sw $t1, 0($t8)
+jr $ra # Return draw_pixel
+
+
+
