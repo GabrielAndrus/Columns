@@ -15,23 +15,22 @@ li $a0, 1
 syscall
 lw $t4, col_x
 lw $t5, col_y
-li $v0, 42 # $t1 = random color
-li $a0, 0 # $a0 = another random color
-li $a1, 16 # $a1 = yet ANOTHER random color
-syscall
+li $t1, 0xff0000 # $t1 = red
+li $t2, 0x00ff00 # $t2 = green
+li $t3, 0x0000ff # $t3 = blue
 
 
 # Draws a column.
 draw_column:
   
 jal draw_pixel # Draw upper pixel
-sw $a0, 0($t8) # Set upper pixel color
+sw $t1, 0($t8) # Set upper pixel color
 addi $t5, $t5, 1 # middle pixel at (col_x, col_y + 1)
 jal draw_pixel # Draw middle pixel
-sw $t1, 0($t8) # Set middle pixel color
+sw $t2, 0($t8) # Set middle pixel color
 addi $t5, $t5, 1 # set lower pixel at (col_x, col_y + 2)
 jal draw_pixel # Draw lower pixel
-sw $a1, 0($t8) # Set lower_pixel color
+sw $t3, 0($t8) # Set lower_pixel color
 
 li $v0, 10 # Load 10 into register $v0.
 syscall # Syscall.
@@ -47,6 +46,3 @@ sll $t7, $t7, 2 # Multiply by 4
 add $t8, $t7, $t0 # Add the above offset to the displayAddress to determine where to write the pixel on the bitmap.
 #sw $t1, 0($t8)
 jr $ra # Return draw_pixel
-
-
-
