@@ -42,7 +42,7 @@ sw $t5, 0($t0) # Draw randomly colored (from colors)
 sw $t6, 4($t0) # Draw randomly colored (from colors) 
 sw $t7, 8($t0) # Draw randomly colored (from colors)
 
-li $a0, 60
+li $v0, 10
 syscall
 
 
