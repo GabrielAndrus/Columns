@@ -25,14 +25,12 @@ ADDR_DSPL:
 # The address of the keyboard. Don't forget to connect it!
 ADDR_KBRD:
     .word 0xffff0000
-col_x: .word 10 # starting x coordinate
-col_y: .word 4 # y coordinate of the upper pixel
 order: .word 1, 2, 3 # Colors: upper pixel, middle pixel, lower pixel
 colorsArray: .word 0xff0000, 0x00ff00, 0x0000ff, 0xFFFF00, 0xFFA500, 0x800080 #Colors contains red, blue, green, yellow, orange, purple.
 grid_x: .word 3
 grid_y: .word 3
-grid_width: .word 14
-grid_height: .word 22
+grid_width: .word 20
+grid_height: .word 20
 empty_color: .word 0x000000
 ##############################################################################
 # Mutable Data
@@ -63,6 +61,8 @@ main:
     add $t5, $zero, $t4
     jal draw_grid           # call the rectangle drawing code.
     
+create_new_column:
+    
     la $t0, colorsArray
     
     jal generate_random_colour
@@ -74,15 +74,22 @@ main:
     sll  $t1, $v0, 2         # index * 4
     add  $t1, $t0, $t1
     lw   $t7, 0($t1)
+    
     jal generate_random_colour
     sll  $t1, $v0, 2         # index * 4
     add  $t1, $t0, $t1
     lw   $t9, 0($t1)
     
+    jal side_draw
+    
     lw $t0, ADDR_DSPL
     lw $t1, ADDR_KBRD
-    lw $t2, col_x
-    lw $t3, col_y
+    lw $t2, grid_width
+    lw $t3, grid_x
+    srl $t2, $t2, 1
+    add $t2, $t2, $t3
+    lw $t3, grid_y
+    addi $t3, $t3, 1
 
 game_loop:
     # 1a. Check if key has been pressed
@@ -102,7 +109,43 @@ game_loop:
 
     # 2a. Check for collisions.
     
+side_draw:
+    addi $sp, $sp, -4   #save variable that is temporarily used
+    sw $ra, 0($sp)
+    addi $sp, $sp, -4   #save variable that is temporarily used
+    sw $t0, 0($sp)
+    addi $sp, $sp, -4   #save variable that is temporarily used
+    sw $t1, 0($sp)
+    addi $sp, $sp, -4   #save variable that is temporarily used
+    sw $t2, 0($sp)
+    addi $sp, $sp, -4   #save variable that is temporarily used
+    sw $t3, 0($sp)
     
+    
+    lw $t0, ADDR_DSPL
+    lw $t2, grid_width
+    lw $t3, grid_x
+    add $t2, $t2, $t3
+    addi $t2, $t2, 3
+    lw $t3, grid_y
+    lw $t1, grid_height
+    srl $t1, $t1, 1
+    add $t3, $t3, $t1
+    
+    j draw_column
+    
+    lw $t3, 0($sp)
+    addi $sp, $sp, 4
+    lw $t2, 0($sp)
+    addi $sp, $sp, 4
+    lw $t1, 0($sp)
+    addi $sp, $sp, 4
+    lw $t0, 0($sp)
+    addi $sp, $sp, 4
+    lw $ra, 0($sp)
+    addi $sp, $sp, 4
+    
+jr $ra
     
 
     # 2b. Update locations
@@ -121,7 +164,8 @@ collision:  # When collision happens, draws the column where it was
     syscall
     j game_loop
 
-no_input:
+no_input:   
+    lw $t8, empty_color
     addi $sp, $sp, -4   #save variable that is temporarily used
     sw $t3, 0($sp)
     addi $t3, $t3, 3
@@ -129,8 +173,8 @@ no_input:
     lw $t3, 0($sp)
     addi $sp, $sp, 4
     
-    lw $t8, empty_color
-    bne $v0, $t8, collision
+    bne $v0, $t8, draw_column_and_create
+    
     addi $t3, $t3, 1 # configure so column is falling
     
     jal draw_column
@@ -146,6 +190,9 @@ no_input:
 li $v0, 10
 syscall
 
+draw_column_and_create:
+jal draw_column
+j create_new_column
 
 ##  The draw_line function
 ##  - Draws a horizontal line from a given X and Y coordinate 
@@ -199,7 +246,20 @@ respond_to_d:
 
 # When s pushed, shift column down (col_x, col_y + 1)
 respond_to_s:
-    addi $t3, $t3, 1
+    lw $t8, empty_color
+    addi $sp, $sp, -4   #save variable that is temporarily used
+    sw $t3, 0($sp)
+    addi $t3, $t3, 3
+    jal get_display_pixel
+    lw $t3, 0($sp)
+    addi $sp, $sp, 4
+    
+    bne $v0, $t8, draw_column_and_create
+    
+    addi $t3, $t3, 1 # configure so column is falling
+    
+    jal draw_column
+    
     j game_loop
 
 # please daniel be my saviour
