@@ -1,8 +1,8 @@
 ################# CSC258 Assembly Final Project ###################
 # This file contains our implementation of Columns.
 #
-# Student 1: Name, Student Number
-# Student 2: Name, Student Number (if applicable)
+# Student 1: Gabriel Andrus, 1010898762
+# Student 2: Daniel Hong, 1011662504
 #
 # We assert that the code submitted here is entirely our own 
 # creation, and will indicate otherwise when it is not.
@@ -25,7 +25,10 @@ ADDR_DSPL:
 # The address of the keyboard. Don't forget to connect it!
 ADDR_KBRD:
     .word 0xffff0000
-
+col_x: .word 16 # starting x coordinate
+col_y: .word 0 # y coordinate of the upper pixel
+order: .word 1, 2, 3 # Colors: upper pixel, middle pixel, lower pixel
+colorsArray: .word 0xff0000, 0x00ff00, 0x0000ff, 0xFFFF00, 0xFFA500, 0x800080 #Colors contains red, blue, green, yellow, orange, purple.
 ##############################################################################
 # Mutable Data
 ##############################################################################
@@ -55,20 +58,66 @@ main:
     add $t5, $zero, $t4
     jal draw_grid           # call the rectangle drawing code.
     
+    la $t0, colorsArray
     
+    jal generate_random_colour
+    sll  $t1, $v0, 2         # index * 4
+    add  $t1, $t0, $t1
+    lw   $a3, 0($t1)
+    
+    jal generate_random_colour
+    sll  $t1, $v0, 2         # index * 4
+    add  $t1, $t0, $t1
+    lw   $t7, 0($t1)
+    jal generate_random_colour
+    sll  $t1, $v0, 2         # index * 4
+    add  $t1, $t0, $t1
+    lw   $t9, 0($t1)
+    
+    lw $t0, ADDR_DSPL
+    lw $t1, ADDR_KBRD
+    lw $t2, col_x
+    lw $t3, col_y
 
 game_loop:
     # 1a. Check if key has been pressed
-    # 1b. Check which key has been pressed
-    # 2a. Check for collisions
-	# 2b. Update locations (capsules)
-	# 3. Draw the screen
-	# 4. Sleep
+    lw $t8, 0($t1)
+    jal remove_column
+    beq $t8, $zero, no_input
+    lw $t8, 4($t1)  
+    move $s0, $t8   
 
-    # 5. Go back to Step 1
+    # 1b. Check which key has been pressed
+    beq $t8, 0x61, respond_to_a    # 'a'
+    beq $t8, 0x77, respond_to_w    # 'w'  
+    beq $t8, 0x73, respond_to_s    # 's'
+    beq $t8, 0x64, respond_to_d    # 'd'
+    
+    
+
+    # 2a. Check for collisions.
+
+    # 2b. Update locations
+
+    # 3. Draw the screen
+
+    # 4. Sleep
+
+    # 5. Go back to step 1
+no_input:
+    addi $t3, $t3, 1 # configure so column is falling
+    
+    jal draw_column
+    
+    li $v0, 32
+    li $a0, 500
+    syscall
+    
     j game_loop
 
 
+
+li $v0, 10
 syscall
 
 
@@ -82,6 +131,134 @@ syscall
 # $t0 = the top left corner of the bitmap display
 # $t2 = the starting location for the line.
 # $t3 = location for line drawing to stop.
+
+# When a pushed, move column to the left (col_x - 1, col_y)
+respond_to_a:
+    addi $t2, $t2, -1
+    j game_loop
+
+# when d pushed, move column right (col_x + 1, col_y)
+respond_to_d:
+    addi $t2, $t2, 1
+    j game_loop
+
+# When s pushed, shift column down (col_x, col_y + 1)
+respond_to_s:
+    addi $t3, $t3, 1
+    j game_loop
+
+# please daniel be my saviour
+respond_to_w: 
+    addi $sp, $sp, -4   #save variable that is temporarily used
+    sw $a0, 0($sp)
+    move $a0, $a3   # store random colour in $a3 to a temporary variable $a0
+    move $a3, $t7   # store colour $t7 to $a3
+    move $t7, $t9   # store colour $t9 to $t7
+    move $t9, $a0   # store colour $a0($a3) to $t9
+    lw $a0, 0($sp)
+    addi $sp, $sp, 4
+    j game_loop
+
+j game_loop # jump to game loop
+# When pushed, move column to the right.
+
+draw_column:
+    # Save return address
+    addi $sp, $sp, -4
+    sw $ra, 0($sp)
+    
+    # Draw all three pixels at current column position
+    move $s1, $t3   # Save base y position
+    
+    # Draw top pixel (original y)
+    move $t4, $a3
+    jal draw_pixel
+    
+    # Draw middle pixel (y + 1)
+    addi $t3, $s1, 1
+    move $t4, $t7
+    jal draw_pixel
+    
+    # Draw bottom pixel (y + 2)  
+    addi $t3, $s1, 2
+    move $t4, $t9
+    jal draw_pixel
+    
+    # Restore original y position
+    move $t3, $s1
+    
+    # Restore and return
+    lw $ra, 0($sp)
+    addi $sp, $sp, 4
+    
+    jr $ra
+
+draw_pixel:
+    # Calculate address: (y * 256 + x) * 4 + base_address
+    li $t6, 32
+    mult $t3, $t6
+    
+    addi $sp, $sp, -4   #Storing t7 since we want to use more variables
+    sw $t7, 0($sp)
+    
+    mflo $t7
+    add $t7, $t7, $t2  # y * 256
+    sll $t7, $t7, 2    # Multiply by 4
+    add $t7, $t7, $t0  # Add base address
+    
+    sw $t4, 0($t7)     # Draw the pixel
+    
+    lw $t7, 0($sp)  #getting back $t7 a random colour
+    addi $sp, $sp, 4
+    jr $ra
+
+remove_column:
+    # Save return address
+    addi $sp, $sp, -4
+    sw $ra, 0($sp)
+    
+    # Draw all three pixels at current column position
+    move $s1, $t3   # Save base y position
+    
+    # Draw top pixel (original y)
+    li $t4, 0x000000
+    jal draw_pixel
+    
+    # Draw middle pixel (y + 1)
+    addi $t3, $s1, 1
+    jal draw_pixel
+    
+    # Draw bottom pixel (y + 2)  
+    addi $t3, $s1, 2
+    jal draw_pixel
+    
+    # Restore original y position
+    move $t3, $s1
+    
+    # Restore and return
+    lw $ra, 0($sp)
+    addi $sp, $sp, 4
+    
+    jr $ra
+
+    
+clear_loop:
+    sw $t5, 0($t7)     # Write black pixel for clearing
+    addi $t7, $t7, 4 
+    addi $t6, $t6, -1  # decrement
+    bnez $t6, clear_loop
+    
+    jr $ra# 1a. Check if key has been pressed
+    # 1b. Check which key has been pressed
+    # 2a. Check for collisions
+	# 2b. Update locations (capsules)
+	# 3. Draw the screen
+	# 4. Sleep
+
+    # 5. Go back to Step 1
+    j game_loop
+
+
 draw_line:
 sll $a0, $a0, 2         # multiply the X coordinate by 4 to get the horizontal offset
 add $t2, $t0, $a0       # add this horizontal offset to $t0, store the result in $t2
@@ -190,3 +367,56 @@ lw $ra, 0($sp)                  # pop $a0 from the stack
 addi $sp, $sp, 4                # move the stack pointer to the top stack element
 
 jr $ra
+
+##  The generate_random_colour function
+##  - Draws a rectangle at a given X and Y coordinate 
+#
+# $t4 = array of colours
+# $v0, $a0, $a1 configured for random number generation as per the handout.
+generate_random_colour:
+addi $sp, $sp, -4
+sw   $a0, 0($sp)
+addi $sp, $sp, -4
+sw   $a1, 0($sp)
+
+
+li $v0, 42
+li $a0, 0
+li $a1, 5
+syscall
+move $v0, $a0
+
+addi $sp, $sp, 4
+lw   $a1, 0($sp)
+addi $sp, $sp, 4
+lw   $a0, 0($sp)
+
+jr $ra
+
+generate_random_column_colours:
+addi $sp, $sp, -4
+sw   $ra, 0($sp)
+
+la   $t8, colorsArray    # base of colour array
+
+# top colour
+jal  generate_random_colour
+sll  $t1, $v0, 2         # index * 4
+add  $t1, $t8, $t1
+lw   $t5, 0($t1)
+
+# middle colour
+jal  generate_random_colour
+sll  $t1, $v0, 2
+add  $t1, $t8, $t1
+lw   $t6, 0($t1)
+
+# bottom colour
+jal  generate_random_colour
+sll  $t1, $v0, 2
+add  $t1, $t8, $t1
+lw   $t7, 0($t1)
+
+lw   $ra, 0($sp)
+addi $sp, $sp, 4
+jr   $ra
