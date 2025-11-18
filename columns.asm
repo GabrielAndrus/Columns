@@ -1,8 +1,8 @@
 ################# CSC258 Assembly Final Project ###################
 # This file contains our implementation of Columns.
 #
-# Student 1: Name, Student Number
-# Student 2: Name, Student Number (if applicable)
+# Student 1: Gabriel Andrus, 1010898762
+# Student 2: Daniel Hong, 1011662504
 #
 # We assert that the code submitted here is entirely our own 
 # creation, and will indicate otherwise when it is not.
@@ -25,14 +25,15 @@ ADDR_DSPL:
 # The address of the keyboard. Don't forget to connect it!
 ADDR_KBRD:
     .word 0xffff0000
-col_x: .word 16 # starting x coordinate
-col_y: .word 0 # y coordinate of the upper pixel
+col_x: .word 10 # starting x coordinate
+col_y: .word 4 # y coordinate of the upper pixel
 order: .word 1, 2, 3 # Colors: upper pixel, middle pixel, lower pixel
 colorsArray: .word 0xff0000, 0x00ff00, 0x0000ff, 0xFFFF00, 0xFFA500, 0x800080 #Colors contains red, blue, green, yellow, orange, purple.
 grid_x: .word 3
 grid_y: .word 3
 grid_width: .word 14
 grid_height: .word 22
+empty_color: .word 0x000000
 ##############################################################################
 # Mutable Data
 ##############################################################################
@@ -121,13 +122,15 @@ collision:  # When collision happens, draws the column where it was
     j game_loop
 
 no_input:
-    lw $t8, grid_y
-    lw $v0, grid_height
+    addi $sp, $sp, -4   #save variable that is temporarily used
+    sw $t3, 0($sp)
+    addi $t3, $t3, 3
+    jal get_display_pixel
+    lw $t3, 0($sp)
+    addi $sp, $sp, 4
     
-    add $t8, $t8, $v0
-    addi $t8, $t8, -4
-    
-    bge $t3, $t8, collision
+    lw $t8, empty_color
+    bne $v0, $t8, collision
     addi $t3, $t3, 1 # configure so column is falling
     
     jal draw_column
@@ -157,20 +160,40 @@ syscall
 
 # When a pushed, move column to the left (col_x - 1, col_y)
 respond_to_a:
-    lw $t8, grid_x
-    addi $t8, $t8, 1
-    ble $t2, $t8, collision
+    addi $sp, $sp, -4   #save variable that is temporarily used
+    sw $t2, 0($sp)
+    addi $sp, $sp, -4   #save variable that is temporarily used
+    sw $t3, 0($sp)
+    addi $t3, $t3, 2
+    addi $t2, $t2, -1
+    jal get_display_pixel
+    lw $t3, 0($sp)
+    addi $sp, $sp, 4
+    lw $t2, 0($sp)
+    addi $sp, $sp, 4
+    
+    lw $t8, empty_color
+    bne $v0, $t8, collision
     
     addi $t2, $t2, -1
     j game_loop
 
 # when d pushed, move column right (col_x + 1, col_y)
 respond_to_d:
-    lw $t8, grid_x
-    lw $v0, grid_width
-    add $t8, $t8, $v0
-    add $t8, $t8, -1
-    bge $t2, $t8, collision
+    addi $sp, $sp, -4   #save variable that is temporarily used
+    sw $t2, 0($sp)
+    addi $sp, $sp, -4   #save variable that is temporarily used
+    sw $t3, 0($sp)
+    addi $t3, $t3, 2
+    addi $t2, $t2, 1
+    jal get_display_pixel
+    lw $t3, 0($sp)
+    addi $sp, $sp, 4
+    lw $t2, 0($sp)
+    addi $sp, $sp, 4
+    lw $t8, empty_color
+    bne $v0, $t8, collision
+    
     addi $t2, $t2, 1
     j game_loop
 
@@ -193,6 +216,28 @@ respond_to_w:
 
 j game_loop # jump to game loop
 # When pushed, move column to the right.
+
+get_display_pixel:
+    lw  $t0,ADDR_DSPL
+    
+    addi $sp, $sp, -4   #save variable that is temporarily used
+    sw $t2, 0($sp)
+    addi $sp, $sp, -4   #save variable that is temporarily used
+    sw $t3, 0($sp)
+    
+    sll $t2,$t2,2          
+    add $t2,$t0,$t2
+
+    sll $t3,$t3,7     
+    add $t2,$t2,$t3
+
+    lw  $v0,0($t2)
+    
+    lw $t3, 0($sp)
+    addi $sp, $sp, 4
+    lw $t2, 0($sp)
+    addi $sp, $sp, 4
+    jr  $ra
 
 draw_column:
     # Save return address
