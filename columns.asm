@@ -1,8 +1,8 @@
 ################# CSC258 Assembly Final Project ###################
 # This file contains our implementation of Columns.
 #
-# Student 1: Gabriel Andrus, 1010898762
-# Student 2: Daniel Hong, 1011662504
+# Student 1: Name, Student Number
+# Student 2: Name, Student Number (if applicable)
 #
 # We assert that the code submitted here is entirely our own 
 # creation, and will indicate otherwise when it is not.
@@ -29,6 +29,10 @@ col_x: .word 16 # starting x coordinate
 col_y: .word 0 # y coordinate of the upper pixel
 order: .word 1, 2, 3 # Colors: upper pixel, middle pixel, lower pixel
 colorsArray: .word 0xff0000, 0x00ff00, 0x0000ff, 0xFFFF00, 0xFFA500, 0x800080 #Colors contains red, blue, green, yellow, orange, purple.
+grid_x: .word 3
+grid_y: .word 3
+grid_width: .word 14
+grid_height: .word 22
 ##############################################################################
 # Mutable Data
 ##############################################################################
@@ -51,10 +55,10 @@ main:
     sw $t2, 4( $t0 ) # paint the second unit on the first row green
     sw $t3, 128( $t0 ) # paint the first unit on the second row blue
     
-    addi $a0, $zero, 3     # set X coordinate to 19
-    addi $a1, $zero, 3     # set Y coordinate to 16
-    addi $a2, $zero, 14      # set rectangle width to 4
-    addi $a3, $zero, 22     # set rectangle height to 12
+    lw $a0, grid_x     # set X coordinate to 19
+    lw $a1, grid_y     # set Y coordinate to 16
+    lw $a2, grid_width      # set rectangle width to 4
+    lw $a3, grid_height     # set rectangle height to 12
     add $t5, $zero, $t4
     jal draw_grid           # call the rectangle drawing code.
     
@@ -96,6 +100,9 @@ game_loop:
     
 
     # 2a. Check for collisions.
+    
+    
+    
 
     # 2b. Update locations
 
@@ -104,7 +111,23 @@ game_loop:
     # 4. Sleep
 
     # 5. Go back to step 1
+    
+collision:  # When collision happens, draws the column where it was
+    jal draw_column 
+    
+    li $v0, 32
+    li $a0, 100
+    syscall
+    j game_loop
+
 no_input:
+    lw $t8, grid_y
+    lw $v0, grid_height
+    
+    add $t8, $t8, $v0
+    addi $t8, $t8, -4
+    
+    bge $t3, $t8, collision
     addi $t3, $t3, 1 # configure so column is falling
     
     jal draw_column
@@ -134,11 +157,20 @@ syscall
 
 # When a pushed, move column to the left (col_x - 1, col_y)
 respond_to_a:
+    lw $t8, grid_x
+    addi $t8, $t8, 1
+    ble $t2, $t8, collision
+    
     addi $t2, $t2, -1
     j game_loop
 
 # when d pushed, move column right (col_x + 1, col_y)
 respond_to_d:
+    lw $t8, grid_x
+    lw $v0, grid_width
+    add $t8, $t8, $v0
+    add $t8, $t8, -1
+    bge $t2, $t8, collision
     addi $t2, $t2, 1
     j game_loop
 
