@@ -15,6 +15,17 @@
 # - Base Address for Display:   0x10008000 ($gp)
 ##############################################################################
 
+
+.macro push(%reg)
+    addi $sp, $sp, -4   #save variable that is temporarily used
+    sw %reg, 0($sp)
+.end_macro
+.macro pop(%reg)
+    lw $t3, 0($sp)
+    addi $sp, $sp, 4
+.end_macro
+
+
     .data
 ##############################################################################
 # Immutable Data
