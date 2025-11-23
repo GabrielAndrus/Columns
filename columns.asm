@@ -14,18 +14,98 @@
 # - Display height in pixels:   TODO
 # - Base Address for Display:   0x10008000 ($gp)
 ##############################################################################
-
-
 .macro push(%reg)
     addi $sp, $sp, -4   #save variable that is temporarily used
     sw %reg, 0($sp)
 .end_macro
 .macro pop(%reg)
-    lw $t3, 0($sp)
+    lw %reg, 0($sp)
     addi $sp, $sp, 4
 .end_macro
+.macro loadcolour(%reg)
+bgtz %reg, gray
+lw %reg, empty_color
+j colour_end_mac
+
+gray:
+lw %reg, gray
+
+colour_end_mac:
+.end_macro
+.macro colour_checker(%reg, %erase)
+push(%reg)
+push($ra)
+jal get_display_pixel
+move $t9, $v0
+addi $t4, $zero, 0
+addi $t5, $zero, 0
+jal check_positive
+pop($ra)
+lw %reg, 0($sp)
+push($ra)
+jal check_negative
+
+j grand_return
+
+check_positive:
+push($ra)
+check_positive_loop:
+lw $ra, 0($sp)
+addi %reg, %reg, 1
+jal check_block
+addi $t4, $t4, 1
+bgtz %erase, positive_erase
+j check_positive_loop
+positive_erase:
+jal erase
+addi $t4, $t4, -2
+
+j check_positive_loop
 
 
+
+grand_return:
+pop($ra)
+pop(%reg)
+jr $ra
+
+
+return:
+pop($ra)
+jr $ra
+
+check_negative:
+push($ra)
+check_negative_loop:
+lw $ra, 0($sp)
+addi %reg, %reg, -1
+jal check_block
+addi $t5, $t5, 1
+bgtz %erase, negative_erase
+j check_negative_loop
+negative_erase:
+jal erase
+addi $t5, $t5, -2
+
+j check_negative_loop
+
+check_block:
+push($ra)
+jal get_display_pixel
+pop($ra)
+bne $v0, $t9, return
+jr $ra
+
+
+erase:
+push($ra)
+push($t4)
+lw $t4, empty_color
+jal draw_pixel
+pop($t4)
+j return
+
+.end_macro
     .data
 ##############################################################################
 # Immutable Data
@@ -43,6 +123,7 @@ grid_y: .word 3
 grid_width: .word 20
 grid_height: .word 20
 empty_color: .word 0x000000
+gray: .word 0x777777
 ##############################################################################
 # Mutable Data
 ##############################################################################
@@ -95,11 +176,11 @@ create_new_column:
     
     lw $t0, ADDR_DSPL
     lw $t1, ADDR_KBRD
-    lw $t2, grid_width
-    lw $t3, grid_x
+    lw $t2, grid_width  # $t2 stores the x-coord
+    lw $t3, grid_x 
     srl $t2, $t2, 1
     add $t2, $t2, $t3
-    lw $t3, grid_y
+    lw $t3, grid_y  # $t3 stores the y-coord
     addi $t3, $t3, 1
 
 game_loop:
@@ -115,14 +196,15 @@ game_loop:
     beq $t8, 0x77, respond_to_w    # 'w'  
     beq $t8, 0x73, respond_to_s    # 's'
     beq $t8, 0x64, respond_to_d    # 'd'
+    beq $t8, 0x71, respond_to_q     # 'q'
+    
     
     
 
     # 2a. Check for collisions.
     
 side_draw:
-    addi $sp, $sp, -4   #save variable that is temporarily used
-    sw $ra, 0($sp)
+    push($ra)
     addi $sp, $sp, -4   #save variable that is temporarily used
     sw $t0, 0($sp)
     addi $sp, $sp, -4   #save variable that is temporarily used
@@ -173,7 +255,55 @@ collision:  # When collision happens, draws the column where it was
     li $v0, 32
     li $a0, 100
     syscall
+
+    
+
     j game_loop
+
+
+# $t2: x-coord of the collided column
+# $t3: y-coord of the collided column
+# $t8: switch for loadcolour and horizontal_return
+check_column_colours:
+    push($ra)
+    push($t3)
+    addi $t3, $t3, 2
+check_start:
+    addi $a3, $zero, 0
+    push($t4)
+    push($t5)
+    
+    colour_checker($t2, $a3) # check horizontal colour
+    
+    add $t5, $t5, $t4
+    addi $a3, $zero, 3
+    
+    jal get_display_pixel
+    addi $t8, $zero, 0
+    loadcolour($t8)
+    beq $v0, $t8, check_end
+    
+    bge $t5, $a3, erase_colour
+
+    pop($t5)
+    pop($t4)
+    addi $t3, $t3, -1
+    
+    
+    
+    j check_start
+    
+    check_end:
+    pop($t3)
+    pop($ra)
+    jr $ra
+
+erase_colour:
+    lw $t5, 0($sp)
+    addi $a3, $zero, 1
+    colour_checker($t2, $a3)
+    
+    
 
 no_input:   
     lw $t8, empty_color
@@ -197,12 +327,13 @@ no_input:
     j game_loop
 
 
-
+respond_to_q:
 li $v0, 10
 syscall
 
 draw_column_and_create:
 jal draw_column
+jal check_column_colours
 j create_new_column
 
 ##  The draw_line function
