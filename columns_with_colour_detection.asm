@@ -106,6 +106,168 @@ pop($t4)
 j return
 
 .end_macro
+.macro rdiag_colour_checker(%erase)
+push($t2)
+push($t3)
+push($ra)
+jal get_display_pixel
+move $t9, $v0
+addi $t5, $zero, 0
+addi $t6, $zero, 0
+jal rdcheck_positive
+pop($ra)
+pop($t3)
+pop($t2)
+push($t2)
+push($t3)
+push($ra)
+jal rdcheck_negative
+
+j rdgrand_return
+
+rdcheck_positive:
+push($ra)
+rdcheck_positive_loop:
+lw $ra, 0($sp)
+addi $t2, $t2, 1
+addi $t3, $t3, 1
+jal rdcheck_block
+addi $t5, $t5, 1
+bgtz %erase, rdpositive_erase
+j rdcheck_positive_loop
+rdpositive_erase:
+jal rderase
+addi $t5, $t5, -2
+
+j rdcheck_positive_loop
+
+
+
+rdgrand_return:
+pop($ra)
+pop($t3)
+pop($t2)
+jr $ra
+
+
+rdreturn:
+pop($ra)
+jr $ra
+
+rdcheck_negative:
+push($ra)
+rdcheck_negative_loop:
+lw $ra, 0($sp)
+addi $t2, $t2, -1
+addi $t3, $t3, -1
+jal rdcheck_block
+addi $t6, $t6, 1
+bgtz %erase, rdnegative_erase
+j rdcheck_negative_loop
+rdnegative_erase:
+jal rderase
+addi $t6, $t6, -2
+
+j rdcheck_negative_loop
+
+rdcheck_block:
+push($ra)
+jal get_display_pixel
+pop($ra)
+bne $v0, $t9, rdreturn
+jr $ra
+
+
+rderase:
+push($ra)
+push($t4)
+lw $t4, empty_color
+jal draw_pixel
+pop($t4)
+j rdreturn
+
+.end_macro
+.macro ldiag_colour_checker(%erase)
+push($t2)
+push($t3)
+push($ra)
+jal get_display_pixel
+move $t9, $v0
+addi $t5, $zero, 0
+addi $t6, $zero, 0
+jal ldcheck_positive
+pop($ra)
+pop($t3)
+pop($t2)
+push($t2)
+push($t3)
+push($ra)
+jal ldcheck_negative
+
+j ldgrand_return
+
+ldcheck_positive:
+push($ra)
+ldcheck_positive_loop:
+lw $ra, 0($sp)
+addi $t2, $t2, 1
+addi $t3, $t3, -1
+jal ldcheck_block
+addi $t5, $t5, 1
+bgtz %erase, ldpositive_erase
+j ldcheck_positive_loop
+ldpositive_erase:
+jal lderase
+addi $t5, $t5, -2
+
+j ldcheck_positive_loop
+
+
+
+ldgrand_return:
+pop($ra)
+pop($t3)
+pop($t2)
+jr $ra
+
+
+ldreturn:
+pop($ra)
+jr $ra
+
+ldcheck_negative:
+push($ra)
+ldcheck_negative_loop:
+lw $ra, 0($sp)
+addi $t2, $t2, -1
+addi $t3, $t3, 1
+jal ldcheck_block
+addi $t6, $t6, 1
+bgtz %erase, ldnegative_erase
+j ldcheck_negative_loop
+ldnegative_erase:
+jal lderase
+addi $t6, $t6, -2
+
+j ldcheck_negative_loop
+
+ldcheck_block:
+push($ra)
+jal get_display_pixel
+pop($ra)
+bne $v0, $t9, ldreturn
+jr $ra
+
+
+lderase:
+push($ra)
+push($t4)
+lw $t4, empty_color
+jal draw_pixel
+pop($t4)
+j ldreturn
+
+.end_macro
     .data
 ##############################################################################
 # Immutable Data
@@ -272,9 +434,14 @@ check_column_colours:
     
 check_start:
     addi $a3, $zero, 0
+    addi $s1, $zero, 0
     push($t5)
     push($t6)
     
+    jal get_display_pixel
+    addi $t8, $zero, 1
+    loadcolour($t8)
+    beq $v0, $t8, check_end
     jal get_display_pixel
     addi $t8, $zero, 0
     loadcolour($t8)
@@ -300,10 +467,8 @@ check_start:
     push($t5)
     push($t6)
     
-    jal get_display_pixel
-    addi $t8, $zero, 0
-    loadcolour($t8)
-    beq $v0, $t8, check_end
+    
+    
     
     j vertical_next
     vertical_this:
@@ -320,6 +485,53 @@ check_start:
     vertical_back:
     pop($t6)
     pop($t5)
+    push($t5)
+    push($t6)
+    addi $a3, $zero, 0
+    
+    j rdiag_next
+    rdiag_this:
+    rdiag_colour_checker($a3) # check horizontal colour
+    rdiag_next:
+    jal rdiag_this
+    
+    add $t6, $t6, $t5
+    addi $a3, $zero, 3
+    addi $t6, $t6, 1
+    
+    bge $t6, $a3, erase_rdiag_colour
+    
+    rdiag_back:
+    pop($t6)
+    pop($t5)
+    push($t5)
+    push($t6)
+    addi $a3, $zero, 0
+    
+    j ldiag_next
+    ldiag_this:
+    ldiag_colour_checker($a3) # check horizontal colour
+    ldiag_next:
+    jal ldiag_this
+    
+    add $t6, $t6, $t5
+    addi $a3, $zero, 3
+    addi $t6, $t6, 1
+    
+    bge $t6, $a3, erase_rdiag_colour
+    
+    ldiag_back:
+    pop($t6)
+    pop($t5)
+    
+    bgtz $s1, ethis
+    j enext
+    ethis:
+    jal erase_this_block
+    enext:
+    
+    
+    
     
     addi $t3, $t3, -1
     
@@ -338,14 +550,10 @@ erase_horizontal_colour:
     addi $a3, $zero, 1
     j erase_next
     erase_this:
-    colour_checker($t2, $a3)
     addi $s1, $zero, 1
+    colour_checker($t2, $a3)
     erase_next:
     jal erase_this
-    push($t4)
-    lw $t4, empty_color
-    jal draw_pixel
-    pop($t4)
     j back
     
 erase_vertical_colour:
@@ -353,17 +561,43 @@ erase_vertical_colour:
     addi $a3, $zero, 1
     j erase_vertical_next
     erase_vertical_this:
-    colour_checker($t3, $a3)
     addi $s1, $zero, 1
+    colour_checker($t3, $a3)
     erase_vertical_next:
     jal erase_vertical_this
     
+    j vertical_back
+
+erase_rdiag_colour:
+    lw $t5, 0($sp)
+    addi $a3, $zero, 1
+    j rdiag_erase_next
+    rdiag_erase_this:
+    addi $s1, $zero, 1
+    rdiag_colour_checker($a3)
+    rdiag_erase_next:
+    jal rdiag_erase_this
+    j rdiag_back
+
+erase_ldiag_colour:
+    lw $t5, 0($sp)
+    addi $a3, $zero, 1
+    j ldiag_erase_next
+    ldiag_erase_this:
+    addi $s1, $zero, 1
+    rdiag_colour_checker($a3)
+    ldiag_erase_next:
+    jal ldiag_erase_this
+    j ldiag_back
+    
+erase_this_block:
+    push($ra)
     push($t4)
     lw $t4, empty_color
     jal draw_pixel
     pop($t4)
-    
-    j vertical_back
+    pop($ra)
+    jr $ra
 
 no_input:   
     lw $t8, empty_color
