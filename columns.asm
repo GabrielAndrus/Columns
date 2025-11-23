@@ -37,8 +37,8 @@ push(%reg)
 push($ra)
 jal get_display_pixel
 move $t9, $v0
-addi $t4, $zero, 0
 addi $t5, $zero, 0
+addi $t6, $zero, 0
 jal check_positive
 pop($ra)
 lw %reg, 0($sp)
@@ -53,12 +53,12 @@ check_positive_loop:
 lw $ra, 0($sp)
 addi %reg, %reg, 1
 jal check_block
-addi $t4, $t4, 1
+addi $t5, $t5, 1
 bgtz %erase, positive_erase
 j check_positive_loop
 positive_erase:
 jal erase
-addi $t4, $t4, -2
+addi $t5, $t5, -2
 
 j check_positive_loop
 
@@ -80,12 +80,12 @@ check_negative_loop:
 lw $ra, 0($sp)
 addi %reg, %reg, -1
 jal check_block
-addi $t5, $t5, 1
+addi $t6, $t6, 1
 bgtz %erase, negative_erase
 j check_negative_loop
 negative_erase:
 jal erase
-addi $t5, $t5, -2
+addi $t6, $t6, -2
 
 j check_negative_loop
 
@@ -225,7 +225,7 @@ side_draw:
     srl $t1, $t1, 1
     add $t3, $t3, $t1
     
-    j draw_column
+    jal draw_column
     
     lw $t3, 0($sp)
     addi $sp, $sp, 4
@@ -265,43 +265,60 @@ collision:  # When collision happens, draws the column where it was
 # $t3: y-coord of the collided column
 # $t8: switch for loadcolour and horizontal_return
 check_column_colours:
+    push($s1)
     push($ra)
     push($t3)
     addi $t3, $t3, 2
+    
 check_start:
     addi $a3, $zero, 0
-    push($t4)
     push($t5)
-    
+    push($t6)
+    j next
+    this:
     colour_checker($t2, $a3) # check horizontal colour
+    next:
+    jal this
     
-    add $t5, $t5, $t4
+    add $t6, $t6, $t5
     addi $a3, $zero, 3
+    addi $t6, $t6, 1
     
     jal get_display_pixel
     addi $t8, $zero, 0
     loadcolour($t8)
     beq $v0, $t8, check_end
     
-    bge $t5, $a3, erase_colour
-
+    bge $t6, $a3, erase_horizontal_colour
+    
+    back:
+    pop($t6)
     pop($t5)
-    pop($t4)
+    addi $a3, $zero, 0
+    
+    
     addi $t3, $t3, -1
-    
-    
     
     j check_start
     
     check_end:
+    pop($t6)
+    pop($t5)
     pop($t3)
     pop($ra)
+    pop($s1)
     jr $ra
 
-erase_colour:
+erase_horizontal_colour:
     lw $t5, 0($sp)
     addi $a3, $zero, 1
+    j erase_next
+    erase_this:
     colour_checker($t2, $a3)
+    addi $s1, $zero, 1
+    erase_next:
+    jal erase_this
+    j back
     
     
 
@@ -332,6 +349,7 @@ li $v0, 10
 syscall
 
 draw_column_and_create:
+addi $s1, $zero, 0
 jal draw_column
 jal check_column_colours
 j create_new_column
@@ -445,7 +463,7 @@ draw_column:
     # Save return address
     addi $sp, $sp, -4
     sw $ra, 0($sp)
-    
+    push($s1)
     # Draw all three pixels at current column position
     move $s1, $t3   # Save base y position
     
@@ -465,7 +483,7 @@ draw_column:
     
     # Restore original y position
     move $t3, $s1
-    
+    pop($s1)
     # Restore and return
     lw $ra, 0($sp)
     addi $sp, $sp, 4
