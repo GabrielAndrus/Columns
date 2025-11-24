@@ -14,6 +14,18 @@
 # - Display height in pixels:   TODO
 # - Base Address for Display:   0x10008000 ($gp)
 ##############################################################################
+# The PIXEL macro draws pixels at given coordinate
+.macro PIXEL(%x, %y, %color)
+    li $t4, %x
+    li $t5, %y
+    li $t1, %color
+    jal draw_pixel
+  .end_macro
+  
+# graity_fall macro makes it possible for the column to fall at different rates over time
+#.macro gravity_fall(%rate)
+  #add $t3, $t3, %rate
+#.end_macro
 .macro push(%reg)
     addi $sp, $sp, -4   #save variable that is temporarily used
     sw %reg, 0($sp)
@@ -23,11 +35,11 @@
     addi $sp, $sp, 4
 .end_macro
 .macro loadcolour(%reg)
-bgtz %reg, gray
+bgtz %reg, gogray
 lw %reg, empty_color
 j colour_end_mac
 
-gray:
+gogray:
 lw %reg, gray
 
 colour_end_mac:
@@ -106,6 +118,168 @@ pop($t4)
 j return
 
 .end_macro
+.macro rdiag_colour_checker(%erase)
+push($t2)
+push($t3)
+push($ra)
+jal get_display_pixel
+move $t9, $v0
+addi $t5, $zero, 0
+addi $t6, $zero, 0
+jal rdcheck_positive
+pop($ra)
+pop($t3)
+pop($t2)
+push($t2)
+push($t3)
+push($ra)
+jal rdcheck_negative
+
+j rdgrand_return
+
+rdcheck_positive:
+push($ra)
+rdcheck_positive_loop:
+lw $ra, 0($sp)
+addi $t2, $t2, 1
+addi $t3, $t3, 1
+jal rdcheck_block
+addi $t5, $t5, 1
+bgtz %erase, rdpositive_erase
+j rdcheck_positive_loop
+rdpositive_erase:
+jal rderase
+addi $t5, $t5, -2
+
+j rdcheck_positive_loop
+
+
+
+rdgrand_return:
+pop($ra)
+pop($t3)
+pop($t2)
+jr $ra
+
+
+rdreturn:
+pop($ra)
+jr $ra
+
+rdcheck_negative:
+push($ra)
+rdcheck_negative_loop:
+lw $ra, 0($sp)
+addi $t2, $t2, -1
+addi $t3, $t3, -1
+jal rdcheck_block
+addi $t6, $t6, 1
+bgtz %erase, rdnegative_erase
+j rdcheck_negative_loop
+rdnegative_erase:
+jal rderase
+addi $t6, $t6, -2
+
+j rdcheck_negative_loop
+
+rdcheck_block:
+push($ra)
+jal get_display_pixel
+pop($ra)
+bne $v0, $t9, rdreturn
+jr $ra
+
+
+rderase:
+push($ra)
+push($t4)
+lw $t4, empty_color
+jal draw_pixel
+pop($t4)
+j rdreturn
+
+.end_macro
+.macro ldiag_colour_checker(%erase)
+push($t2)
+push($t3)
+push($ra)
+jal get_display_pixel
+move $t9, $v0
+addi $t5, $zero, 0
+addi $t6, $zero, 0
+jal ldcheck_positive
+pop($ra)
+pop($t3)
+pop($t2)
+push($t2)
+push($t3)
+push($ra)
+jal ldcheck_negative
+
+j ldgrand_return
+
+ldcheck_positive:
+push($ra)
+ldcheck_positive_loop:
+lw $ra, 0($sp)
+addi $t2, $t2, 1
+addi $t3, $t3, -1
+jal ldcheck_block
+addi $t5, $t5, 1
+bgtz %erase, ldpositive_erase
+j ldcheck_positive_loop
+ldpositive_erase:
+jal lderase
+addi $t5, $t5, -2
+
+j ldcheck_positive_loop
+
+
+
+ldgrand_return:
+pop($ra)
+pop($t3)
+pop($t2)
+jr $ra
+
+
+ldreturn:
+pop($ra)
+jr $ra
+
+ldcheck_negative:
+push($ra)
+ldcheck_negative_loop:
+lw $ra, 0($sp)
+addi $t2, $t2, -1
+addi $t3, $t3, 1
+jal ldcheck_block
+addi $t6, $t6, 1
+bgtz %erase, ldnegative_erase
+j ldcheck_negative_loop
+ldnegative_erase:
+jal lderase
+addi $t6, $t6, -2
+
+j ldcheck_negative_loop
+
+ldcheck_block:
+push($ra)
+jal get_display_pixel
+pop($ra)
+bne $v0, $t9, ldreturn
+jr $ra
+
+
+lderase:
+push($ra)
+push($t4)
+lw $t4, empty_color
+jal draw_pixel
+pop($t4)
+j ldreturn
+
+.end_macro
     .data
 ##############################################################################
 # Immutable Data
@@ -118,9 +292,9 @@ ADDR_KBRD:
     .word 0xffff0000
 order: .word 1, 2, 3 # Colors: upper pixel, middle pixel, lower pixel
 colorsArray: .word 0xff0000, 0x00ff00, 0x0000ff, 0xFFFF00, 0xFFA500, 0x800080 #Colors contains red, blue, green, yellow, orange, purple.
-grid_x: .word 3
-grid_y: .word 3
-grid_width: .word 20
+grid_x: .word 1
+grid_y: .word 1
+grid_width: .word 6
 grid_height: .word 20
 empty_color: .word 0x000000
 gray: .word 0x777777
@@ -154,7 +328,22 @@ main:
     jal draw_grid           # call the rectangle drawing code.
     
 create_new_column:
+    lw $t2, grid_width  # $t2 stores the x-coord
+    lw $t3, grid_x 
+    srl $t2, $t2, 1
+    add $t2, $t2, $t3
+    lw $t3, grid_y  # $t3 stores the y-coord
+    addi $t3, $t3, 3
+    jal get_display_pixel
+    lw $t3, empty_color
+    bne $v0, $t3, end_game
+    j continue
+    end_game:
+    jal game_over
+    li $v0, 10
+    syscall
     
+    continue:
     la $t0, colorsArray
     
     jal generate_random_colour
@@ -182,11 +371,13 @@ create_new_column:
     add $t2, $t2, $t3
     lw $t3, grid_y  # $t3 stores the y-coord
     addi $t3, $t3, 1
-
+    
+    
+    
 game_loop:
     # 1a. Check if key has been pressed
-    lw $t8, 0($t1)
     jal remove_column
+    lw $t8, 0($t1)
     beq $t8, $zero, no_input
     lw $t8, 4($t1)  
     move $s0, $t8   
@@ -265,15 +456,25 @@ collision:  # When collision happens, draws the column where it was
 # $t3: y-coord of the collided column
 # $t8: switch for loadcolour and horizontal_return
 check_column_colours:
-    push($s1)
     push($ra)
     push($t3)
     addi $t3, $t3, 2
     
 check_start:
     addi $a3, $zero, 0
+    addi $s1, $zero, 0
     push($t5)
     push($t6)
+    
+    jal get_display_pixel
+    addi $t8, $zero, 1
+    loadcolour($t8)
+    beq $v0, $t8, check_end
+    jal get_display_pixel
+    addi $t8, $zero, 0
+    loadcolour($t8)
+    beq $v0, $t8, check_end
+    
     j next
     this:
     colour_checker($t2, $a3) # check horizontal colour
@@ -284,17 +485,80 @@ check_start:
     addi $a3, $zero, 3
     addi $t6, $t6, 1
     
-    jal get_display_pixel
-    addi $t8, $zero, 0
-    loadcolour($t8)
-    beq $v0, $t8, check_end
-    
     bge $t6, $a3, erase_horizontal_colour
     
-    back:
+    back: 
     pop($t6)
     pop($t5)
+    
     addi $a3, $zero, 0
+    push($t5)
+    push($t6)
+    
+    
+    
+    
+    j vertical_next
+    vertical_this:
+    colour_checker($t3, $a3) # check horizontal colour
+    vertical_next:
+    jal vertical_this
+    
+    add $t6, $t6, $t5
+    addi $a3, $zero, 3
+    addi $t6, $t6, 1
+    
+    bge $t6, $a3, erase_vertical_colour
+    
+    vertical_back:
+    pop($t6)
+    pop($t5)
+    push($t5)
+    push($t6)
+    addi $a3, $zero, 0
+    
+    j rdiag_next
+    rdiag_this:
+    rdiag_colour_checker($a3) # check horizontal colour
+    rdiag_next:
+    jal rdiag_this
+    
+    add $t6, $t6, $t5
+    addi $a3, $zero, 3
+    addi $t6, $t6, 1
+    
+    bge $t6, $a3, erase_rdiag_colour
+    
+    rdiag_back:
+    pop($t6)
+    pop($t5)
+    push($t5)
+    push($t6)
+    addi $a3, $zero, 0
+    
+    j ldiag_next
+    ldiag_this:
+    ldiag_colour_checker($a3) # check horizontal colour
+    ldiag_next:
+    jal ldiag_this
+    
+    add $t6, $t6, $t5
+    addi $a3, $zero, 3
+    addi $t6, $t6, 1
+    
+    bge $t6, $a3, erase_ldiag_colour
+    
+    ldiag_back:
+    pop($t6)
+    pop($t5)
+    
+    bgtz $s1, ethis
+    j enext
+    ethis:
+    jal erase_this_block
+    enext:
+    
+    
     
     
     addi $t3, $t3, -1
@@ -306,7 +570,6 @@ check_start:
     pop($t5)
     pop($t3)
     pop($ra)
-    pop($s1)
     jr $ra
 
 erase_horizontal_colour:
@@ -314,13 +577,54 @@ erase_horizontal_colour:
     addi $a3, $zero, 1
     j erase_next
     erase_this:
-    colour_checker($t2, $a3)
     addi $s1, $zero, 1
+    colour_checker($t2, $a3)
     erase_next:
     jal erase_this
     j back
     
+erase_vertical_colour:
+    lw $t5, 0($sp)
+    addi $a3, $zero, 1
+    j erase_vertical_next
+    erase_vertical_this:
+    addi $s1, $zero, 1
+    colour_checker($t3, $a3)
+    erase_vertical_next:
+    jal erase_vertical_this
     
+    j vertical_back
+
+erase_rdiag_colour:
+    lw $t5, 0($sp)
+    addi $a3, $zero, 1
+    j rdiag_erase_next
+    rdiag_erase_this:
+    addi $s1, $zero, 1
+    rdiag_colour_checker($a3)
+    rdiag_erase_next:
+    jal rdiag_erase_this
+    j rdiag_back
+
+erase_ldiag_colour:
+    lw $t5, 0($sp)
+    addi $a3, $zero, 1
+    j ldiag_erase_next
+    ldiag_erase_this:
+    addi $s1, $zero, 1
+    rdiag_colour_checker($a3)
+    ldiag_erase_next:
+    jal ldiag_erase_this
+    j ldiag_back
+    
+erase_this_block:
+    push($ra)
+    push($t4)
+    lw $t4, empty_color
+    jal draw_pixel
+    pop($t4)
+    pop($ra)
+    jr $ra
 
 no_input:   
     lw $t8, empty_color
@@ -349,9 +653,23 @@ li $v0, 10
 syscall
 
 draw_column_and_create:
+
+
 addi $s1, $zero, 0
 jal draw_column
 jal check_column_colours
+
+drop:
+jal dropper
+
+
+bgtz $a1, check_all_column_colours
+
+j create_new_column
+check_all_column_colours:
+jal check_all_colour
+bgtz $s1, drop
+
 j create_new_column
 
 ##  The draw_line function
@@ -717,3 +1035,334 @@ lw   $t7, 0($t1)
 lw   $ra, 0($sp)
 addi $sp, $sp, 4
 jr   $ra
+
+
+
+dropper:
+lw $t0, ADDR_DSPL
+addi $a1, $zero,0
+push($ra)
+push($s1)
+push($s2)
+push($s3)
+push($s4)
+push($s5)
+push($s6)
+push($s7)
+
+lw $s1, grid_width
+lw $s2, grid_height
+lw $s3, grid_x
+lw $s4, grid_y
+
+add $s1, $s1, $s3   # end loc
+add $s2, $s2, $s4
+
+addi $s2, $s2, -2
+addi $s3, $s3, 1
+
+addi $s6, $zero, 1
+loadcolour($s6)
+addi $s7, $zero, 0 
+loadcolour($s7)
+
+drop_loop:
+bge $s3, $s1, drop_end
+jal drop_column
+addi $s3, $s3, 1
+j drop_loop
+drop_end:
+
+pop($s7)
+pop($s6)
+pop($s5)
+pop($s4)
+pop($s3)
+pop($s2)
+pop($s1)
+pop($ra)
+
+
+jr $ra
+
+
+drop_column:
+push($ra)
+push($s2)
+push($s5)
+lw $s5, empty_color
+drop_column_loop:
+    ble $s2, $s4, drop_column_end
+    
+    carry_down:
+        beq $s5, $s7, move_up
+        beq $s5, $s6, move_up
+        push($t2)
+        push($t3)
+        add $t3, $zero $s2
+        add $t2, $zero, $s3
+        addi $t3, $t3, 1
+        jal get_display_pixel
+        bne $v0, $s7, drop_in_hand
+        addi $s2, $s2, 1
+        add $a1, $a1, 1
+        j move_down
+        drop_in_hand:
+            addi $t3, $t3, -1
+            add $t4, $zero, $s5
+            jal draw_pixel
+            add $s5, $zero, $s7
+            addi $s2, $s2, -1
+        move_down:
+        
+        pop($t3)
+        pop($t2)
+        j carry_down
+    move_up:
+        push($t2)
+        push($t3)
+        add $t3, $zero, $s2
+        add $t2, $zero, $s3
+        jal get_display_pixel
+        
+        add $s5, $zero, $v0
+        
+        push($t4)
+        lw $t4, empty_color
+        jal draw_pixel
+        pop($t4)
+        
+        addi $s2, $s2, -1
+        add $s5, $zero, $v0
+        
+        pop($t3)
+        pop($t2)
+    j drop_column_loop
+drop_column_end:
+
+pop($s5)
+pop($s2)
+pop($ra)
+jr $ra
+
+check_all_colour:
+lw $t0, ADDR_DSPL
+addi $a1, $zero,0
+push($ra)
+push($s2)
+push($s3)
+push($s4)
+push($s5)
+push($s6)
+push($s7)
+
+lw $s1, grid_width
+lw $s2, grid_height
+lw $s3, grid_x
+lw $s4, grid_y
+
+
+add $s2, $s2, $s4
+add $s4, $s1, $s3   # end loc
+
+addi $s2, $s2, -2
+addi $s3, $s3, 1
+
+addi $s6, $zero, 1
+loadcolour($s6)
+addi $s7, $zero, 0 
+loadcolour($s7)
+add $s1, $zero, 0
+check_all_loop:
+bge $s3, $s4, check_all_end
+add $t2, $zero, $s3
+add $t3, $zero, $s2
+jal check_column_colours
+addi $s3, $s3, 1
+j check_all_loop
+check_all_end:
+
+pop($s7)
+pop($s6)
+pop($s5)
+pop($s4)
+pop($s3)
+pop($s2)
+pop($ra)
+
+
+jr $ra
+
+# Display the "Game over" screen
+game_over:
+  jal reset_screen # Calls clear loop to "clear" the screen by drawing black pixels
+  li $t0, 0x10008000 # reset the displaay addressa
+  jal draw_GAME_OVER
+  jr $ra
+
+
+draw_GAME_OVER:
+  jal draw_GAME
+  jal draw_OVER
+# Each of the below methods draws its corresponding character
+draw_G:
+  PIXEL(2, 2, 0xffff0000)
+  PIXEL(3, 2, 0xffff0000)
+  PIXEL(4, 2, 0xffff0000)
+  PIXEL(5, 2, 0xffff0000)
+  PIXEL(2, 3, 0xffff0000)
+  PIXEL(2, 4, 0xffff0000)
+  PIXEL(2, 5, 0xffff0000)
+  PIXEL(2, 6, 0xffff0000)
+  PIXEL(3, 6, 0xffff0000)
+  PIXEL(4, 6, 0xffff0000)
+  PIXEL(5, 6, 0xffff0000)
+  PIXEL(6, 6, 0xffff0000)
+  PIXEL(6, 5, 0xffff0000)
+  PIXEL(6, 4, 0xffff0000)
+  PIXEL(5, 4, 0xffff0000)
+  jr $ra
+draw_A:
+  PIXEL(9, 2, 0xffff0000)
+  PIXEL(10, 2, 0xffff0000)
+  PIXEL(11, 2, 0xffff0000)
+  PIXEL(11, 3, 0xffff0000)
+  PIXEL(11, 4, 0xffff0000)
+  PIXEL(11, 5, 0xffff0000)
+  PIXEL(11, 6, 0xffff0000)
+  PIXEL(9, 3, 0xffff0000)
+  PIXEL(10, 4,0xffff0000)
+  PIXEL(9, 4, 0xffff0000)
+  PIXEL(9, 5, 0xffff0000)
+  PIXEL(9, 6, 0xffff0000)
+  jr $ra
+draw_M:
+  PIXEL(14, 2, 0xffff0000)
+  PIXEL(14, 3, 0xffff0000)
+  PIXEL(14, 4, 0xffff0000)
+  PIXEL(14, 5, 0xffff0000)
+  PIXEL(14, 6, 0xffff0000)
+  PIXEL(15, 2, 0xffff0000)
+  PIXEL(16, 2, 0xffff0000)
+  PIXEL(16, 3, 0xffff0000)
+  PIXEL(16, 4, 0xffff0000)
+  PIXEL(16, 5, 0xffff0000)
+  PIXEL(16, 6, 0xffff0000)
+  PIXEL(17, 2, 0xffff0000)
+  PIXEL(18, 2, 0xffff0000)
+  PIXEL(18, 3, 0xffff0000)
+  PIXEL(18, 4, 0xffff0000)
+  PIXEL(18, 5, 0xffff0000)
+  PIXEL(18, 6, 0xffff0000)
+  jr $ra
+draw_E:
+  PIXEL(21, 2, 0xffff0000)
+  PIXEL(22,2, 0xffff0000)
+  PIXEL(23,2, 0xffff0000)
+  PIXEL(21,3, 0xffff0000)
+  PIXEL(21,4, 0xffff0000)
+  PIXEL(22,4, 0xffff0000)
+  PIXEL(23,4, 0xffff0000)
+  PIXEL(21,5, 0xffff0000)
+  PIXEL(21,6, 0xffff0000)
+  PIXEL(22, 6, 0xffff0000)
+  PIXEL(23, 6, 0xffff0000)
+  jr $ra
+draw_O:
+  PIXEL(2, 10, 0xffff0000)
+  PIXEL(3, 10, 0xffff0000)
+  PIXEL(4, 10, 0xffff0000)
+  PIXEL(5, 10, 0xffff0000)
+  PIXEL(2, 11, 0xffff0000)
+  PIXEL(2, 12, 0xffff0000)
+  PIXEL(2, 13, 0xffff0000)
+  PIXEL(2, 14, 0xffff0000)
+  PIXEL(2, 15, 0xffff0000)
+  PIXEL(3, 15, 0xffff0000)
+  PIXEL(4, 15, 0xffff0000)
+  PIXEL(5, 15, 0xffff0000)
+  PIXEL(6, 15, 0xffff0000)
+  PIXEL(6, 14, 0xffff0000)
+  PIXEL(6, 13, 0xffff0000)
+  PIXEL(6, 12, 0xffff0000)
+  PIXEL(6, 11, 0xffff0000)
+  PIXEL(6, 10, 0xffff0000)
+  jr $ra
+draw_V:
+  PIXEL(10, 10, 0xffff0000)
+  PIXEL(10, 11, 0xffff0000)
+  PIXEL(10, 12, 0xffff0000)
+  PIXEL(10, 13, 0xffff0000)
+  PIXEL(10, 14, 0xffff0000)
+  PIXEL(10, 15, 0xffff0000)
+  PIXEL(11, 15, 0xffff0000)
+  PIXEL(12, 15, 0xffff0000)
+  PIXEL(12, 14, 0xffff0000)
+  PIXEL(12, 13, 0xffff0000)
+  PIXEL(12, 12, 0xffff0000)
+  PIXEL(12, 11, 0xffff0000)
+  PIXEL(12, 10, 0xffff0000)
+  jr $ra
+draw_SecondE:
+  PIXEL(15, 10, 0xffff0000)
+  PIXEL(15, 11, 0xffff0000)
+  PIXEL(15, 12, 0xffff0000)
+  PIXEL(15, 13, 0xffff0000)
+  PIXEL(15, 14, 0xffff0000)
+  PIXEL(16, 12, 0xffff0000)
+  PIXEL(17, 12, 0xffff0000)
+  PIXEL(15, 15, 0xffff0000)
+  PIXEL(16, 10, 0xffff0000)
+  PIXEL(17, 10, 0xffff0000)
+  PIXEL(16, 15, 0xffff0000)
+  PIXEL(17, 15, 0xffff0000)
+  jr $ra
+draw_R:
+  PIXEL(20, 10, 0xffff0000)
+  PIXEL(21, 10, 0xffff0000)
+  PIXEL(22, 10, 0xffff0000)
+  PIXEL(23, 10, 0xffff0000)
+  PIXEL(23, 11, 0xffff0000)
+  PIXEL(23, 12, 0xffff0000)
+  PIXEL(22, 12, 0xffff0000)
+  PIXEL(21, 12, 0xffff0000)
+  PIXEL(23, 13, 0xffff0000)
+  PIXEL(24, 14, 0xffff0000)
+  PIXEL(25, 15, 0xffff0000)
+  PIXEL(20, 11, 0xffff0000)
+  PIXEL(20, 12, 0xffff0000)
+  PIXEL(20, 13, 0xffff0000)
+  PIXEL(20, 14, 0xffff0000)
+  PIXEL(20, 15, 0xffff0000)
+  jr $ra
+  
+# Draw "GAME" on the bitmap
+draw_GAME:
+  li $t0, 0x10008000
+  jal draw_G
+  jal draw_A
+  jal draw_M
+  jal draw_E
+  jr $ra
+
+# Draw "OVER" on the bitmap
+draw_OVER:
+  li $t0, 0x10008000
+  jal draw_O
+  jal draw_V
+  jal draw_SecondE
+  jal draw_R
+  jr $ra
+
+
+# Some functions to clear the screen -- up to Daniel's discretion for implementing
+reset_screen:
+    li   $t0, 0x10008000      # base address of bitmap
+    li   $t1, 0x00000000      # black
+    li   $t2, 65536           # number of pixels (32*32)
+reset_loop:
+    sw   $t1, 0($t0)          # write black pixel
+    addi $t0, $t0, 4          # move to next pixel
+    addi $t2, $t2, -1         # decrement counter
+    bgtz $t2, reset_loop
+    jr   $ra
