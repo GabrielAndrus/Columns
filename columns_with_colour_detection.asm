@@ -23,11 +23,11 @@
     addi $sp, $sp, 4
 .end_macro
 .macro loadcolour(%reg)
-bgtz %reg, gray
+bgtz %reg, gogray
 lw %reg, empty_color
 j colour_end_mac
 
-gray:
+gogray:
 lw %reg, gray
 
 colour_end_mac:
@@ -280,9 +280,9 @@ ADDR_KBRD:
     .word 0xffff0000
 order: .word 1, 2, 3 # Colors: upper pixel, middle pixel, lower pixel
 colorsArray: .word 0xff0000, 0x00ff00, 0x0000ff, 0xFFFF00, 0xFFA500, 0x800080 #Colors contains red, blue, green, yellow, orange, purple.
-grid_x: .word 3
-grid_y: .word 3
-grid_width: .word 20
+grid_x: .word 1
+grid_y: .word 1
+grid_width: .word 6
 grid_height: .word 20
 empty_color: .word 0x000000
 gray: .word 0x777777
@@ -427,7 +427,6 @@ collision:  # When collision happens, draws the column where it was
 # $t3: y-coord of the collided column
 # $t8: switch for loadcolour and horizontal_return
 check_column_colours:
-    push($s1)
     push($ra)
     push($t3)
     addi $t3, $t3, 2
@@ -518,7 +517,7 @@ check_start:
     addi $a3, $zero, 3
     addi $t6, $t6, 1
     
-    bge $t6, $a3, erase_rdiag_colour
+    bge $t6, $a3, erase_ldiag_colour
     
     ldiag_back:
     pop($t6)
@@ -542,7 +541,6 @@ check_start:
     pop($t5)
     pop($t3)
     pop($ra)
-    pop($s1)
     jr $ra
 
 erase_horizontal_colour:
@@ -626,9 +624,23 @@ li $v0, 10
 syscall
 
 draw_column_and_create:
+
+
 addi $s1, $zero, 0
 jal draw_column
 jal check_column_colours
+
+drop:
+jal dropper
+
+
+bgtz $a1, check_all_column_colours
+
+j create_new_column
+check_all_column_colours:
+jal check_all_colour
+bgtz $s1, drop
+
 j create_new_column
 
 ##  The draw_line function
@@ -994,3 +1006,160 @@ lw   $t7, 0($t1)
 lw   $ra, 0($sp)
 addi $sp, $sp, 4
 jr   $ra
+
+
+
+dropper:
+lw $t0, ADDR_DSPL
+addi $a1, $zero,0
+push($ra)
+push($s1)
+push($s2)
+push($s3)
+push($s4)
+push($s5)
+push($s6)
+push($s7)
+
+lw $s1, grid_width
+lw $s2, grid_height
+lw $s3, grid_x
+lw $s4, grid_y
+
+add $s1, $s1, $s3   # end loc
+add $s2, $s2, $s4
+
+addi $s2, $s2, -2
+addi $s3, $s3, 1
+
+addi $s6, $zero, 1
+loadcolour($s6)
+addi $s7, $zero, 0 
+loadcolour($s7)
+
+drop_loop:
+bge $s3, $s1, drop_end
+jal drop_column
+addi $s3, $s3, 1
+j drop_loop
+drop_end:
+
+pop($s7)
+pop($s6)
+pop($s5)
+pop($s4)
+pop($s3)
+pop($s2)
+pop($s1)
+pop($ra)
+
+
+jr $ra
+
+
+drop_column:
+push($ra)
+push($s2)
+push($s5)
+lw $s5, empty_color
+drop_column_loop:
+    ble $s2, $s4, drop_column_end
+    
+    carry_down:
+        beq $s5, $s7, move_up
+        beq $s5, $s6, move_up
+        push($t2)
+        push($t3)
+        add $t3, $zero $s2
+        add $t2, $zero, $s3
+        addi $t3, $t3, 1
+        jal get_display_pixel
+        bne $v0, $s7, drop_in_hand
+        addi $s2, $s2, 1
+        add $a1, $a1, 1
+        j move_down
+        drop_in_hand:
+            addi $t3, $t3, -1
+            add $t4, $zero, $s5
+            jal draw_pixel
+            add $s5, $zero, $s7
+            addi $s2, $s2, -1
+        move_down:
+        
+        pop($t3)
+        pop($t2)
+        j carry_down
+    move_up:
+        push($t2)
+        push($t3)
+        add $t3, $zero, $s2
+        add $t2, $zero, $s3
+        jal get_display_pixel
+        
+        add $s5, $zero, $v0
+        
+        push($t4)
+        lw $t4, empty_color
+        jal draw_pixel
+        pop($t4)
+        
+        addi $s2, $s2, -1
+        add $s5, $zero, $v0
+        
+        pop($t3)
+        pop($t2)
+    j drop_column_loop
+drop_column_end:
+
+pop($s5)
+pop($s2)
+pop($ra)
+jr $ra
+
+check_all_colour:
+lw $t0, ADDR_DSPL
+addi $a1, $zero,0
+push($ra)
+push($s2)
+push($s3)
+push($s4)
+push($s5)
+push($s6)
+push($s7)
+
+lw $s1, grid_width
+lw $s2, grid_height
+lw $s3, grid_x
+lw $s4, grid_y
+
+
+add $s2, $s2, $s4
+add $s4, $s1, $s3   # end loc
+
+addi $s2, $s2, -2
+addi $s3, $s3, 1
+
+addi $s6, $zero, 1
+loadcolour($s6)
+addi $s7, $zero, 0 
+loadcolour($s7)
+add $s1, $zero, 0
+check_all_loop:
+bge $s3, $s4, check_all_end
+add $t2, $zero, $s3
+add $t3, $zero, $s2
+jal check_column_colours
+addi $s3, $s3, 1
+j check_all_loop
+check_all_end:
+
+pop($s7)
+pop($s6)
+pop($s5)
+pop($s4)
+pop($s3)
+pop($s2)
+pop($ra)
+
+
+jr $ra
