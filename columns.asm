@@ -310,9 +310,9 @@ ADDR_KBRD:
 order: .word 1, 2, 3 # Colors: upper pixel, middle pixel, lower pixel
 colorsArray: .word 0xff0000, 0x00ff00, 0x0000ff, 0xFFFF00, 0xFFA500, 
                   0x800080, 0xeb34c0, 0x34e2eb#Colors contains red, blue, green, yellow, orange, purple, pink, cyan
-grid_x: .word 1
-grid_y: .word 1
-grid_width: .word 6
+grid_x: .word 3
+grid_y: .word 3
+grid_width: .word 15
 grid_height: .word 20
 empty_color: .word 0x000000
 gray: .word 0x777777
@@ -479,6 +479,11 @@ check_column_colours:
     push($ra)
     push($t3)
     addi $t3, $t3, 2
+    j check_start
+check_colour:
+    push($ra)
+    push($t3)
+    j check_start
     
 check_start:
     addi $a3, $zero, 0
@@ -646,8 +651,63 @@ erase_this_block:
     pop($ra)
     jr $ra
 
-no_input:   
+no_input:
+    lw $a1, draw_mode
+    beq $a1, 0, vertical_no
     lw $t8, empty_color
+    horizontal_no:
+    addi $sp, $sp, -4   #save variable that is temporarily used
+    sw $t3, 0($sp)
+    addi $sp, $sp, -4   #save variable that is temporarily used
+    sw $t2, 0($sp)
+    
+    addi $t3, $t3, 1
+    jal get_display_pixel
+    
+    lw $t2, 0($sp)
+    addi $sp, $sp, 4
+    lw $t3, 0($sp)
+    addi $sp, $sp, 4
+    
+    bne $v0, $t8, draw_column_and_create
+    
+    addi $sp, $sp, -4   #save variable that is temporarily used
+    sw $t3, 0($sp)
+    addi $sp, $sp, -4   #save variable that is temporarily used
+    sw $t2, 0($sp)
+    
+    addi $t3, $t3, 1
+    addi $t2, $t2, 1
+    jal get_display_pixel
+    
+    lw $t2, 0($sp)
+    addi $sp, $sp, 4
+    lw $t3, 0($sp)
+    addi $sp, $sp, 4
+    
+    bne $v0, $t8, draw_column_and_create
+    
+    addi $sp, $sp, -4   #save variable that is temporarily used
+    sw $t3, 0($sp)
+    addi $sp, $sp, -4   #save variable that is temporarily used
+    sw $t2, 0($sp)
+    
+    addi $t3, $t3, 1
+    addi $t2, $t2, 2
+    jal get_display_pixel
+    
+    lw $t2, 0($sp)
+    addi $sp, $sp, 4
+    lw $t3, 0($sp)
+    addi $sp, $sp, 4
+    
+    bne $v0, $t8, draw_column_and_create
+    
+    j jump_no
+    
+    
+    vertical_no:
+    
     addi $sp, $sp, -4   #save variable that is temporarily used
     sw $t3, 0($sp)
     addi $t3, $t3, 3
@@ -656,6 +716,8 @@ no_input:
     addi $sp, $sp, 4
     
     bne $v0, $t8, draw_column_and_create
+    
+    jump_no:
     
     addi $t3, $t3, 1 # configure so column is falling
     
@@ -762,7 +824,61 @@ respond_to_d:
 
 # When s pushed, shift column down (col_x, col_y + 1)
 respond_to_s:
+    lw $a1, draw_mode
+    beq $a1, 0, vertical_no
     lw $t8, empty_color
+    
+    horizontal_s:
+    addi $sp, $sp, -4   #save variable that is temporarily used
+    sw $t3, 0($sp)
+    addi $sp, $sp, -4   #save variable that is temporarily used
+    sw $t2, 0($sp)
+    
+    addi $t3, $t3, 1
+    jal get_display_pixel
+    
+    lw $t2, 0($sp)
+    addi $sp, $sp, 4
+    lw $t3, 0($sp)
+    addi $sp, $sp, 4
+    
+    bne $v0, $t8, draw_column_and_create
+    
+    addi $sp, $sp, -4   #save variable that is temporarily used
+    sw $t3, 0($sp)
+    addi $sp, $sp, -4   #save variable that is temporarily used
+    sw $t2, 0($sp)
+    
+    addi $t3, $t3, 1
+    addi $t2, $t2, 1
+    jal get_display_pixel
+    
+    lw $t2, 0($sp)
+    addi $sp, $sp, 4
+    lw $t3, 0($sp)
+    addi $sp, $sp, 4
+    
+    bne $v0, $t8, draw_column_and_create
+    
+    addi $sp, $sp, -4   #save variable that is temporarily used
+    sw $t3, 0($sp)
+    addi $sp, $sp, -4   #save variable that is temporarily used
+    sw $t2, 0($sp)
+    
+    addi $t3, $t3, 1
+    addi $t2, $t2, 2
+    jal get_display_pixel
+    
+    lw $t2, 0($sp)
+    addi $sp, $sp, 4
+    lw $t3, 0($sp)
+    addi $sp, $sp, 4
+    
+    bne $v0, $t8, draw_column_and_create
+    
+    j jump_s
+    
+    vertical_s:
     addi $sp, $sp, -4   #save variable that is temporarily used
     sw $t3, 0($sp)
     addi $t3, $t3, 3
@@ -771,6 +887,8 @@ respond_to_s:
     addi $sp, $sp, 4
     
     bne $v0, $t8, draw_column_and_create
+    
+    jump_s:
     
     addi $t3, $t3, 1 # configure so column is falling
     
@@ -1203,7 +1321,7 @@ check_all_loop:
   bge $s3, $s4, check_all_end
   add $t2, $zero, $s3
   add $t3, $zero, $s2
-  jal check_column_colours
+  jal check_colour
   addi $s3, $s3, 1
   j check_all_loop
 check_all_end:
