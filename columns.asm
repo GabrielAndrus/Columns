@@ -366,6 +366,7 @@ create_new_column:
     syscall
     
     continue:
+    jal dropper
     la $t0, colorsArray
     
     jal generate_random_colour
