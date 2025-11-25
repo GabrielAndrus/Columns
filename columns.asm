@@ -16,9 +16,9 @@
 ##############################################################################
 # The PIXEL macro draws pixels at given coordinate
 .macro PIXEL(%x, %y, %color)
-    li $t4, %x
-    li $t5, %y
-    li $t1, %color
+    li $s1, %x
+    li $s2, %y
+    li $s3, %color
     jal draw_pixel
   .end_macro
   
@@ -337,9 +337,7 @@ main:
     li $t3, 0x0000ff # $t3 = blue
     li $t4, 0x777777 # $t3 = gray
     lw $t0, ADDR_DSPL # $t0 = base address for display
-    sw $t1, 0( $t0 ) # paint the first unit (i.e., top−left) red
-    sw $t2, 4( $t0 ) # paint the second unit on the first row green
-    sw $t3, 128( $t0 ) # paint the first unit on the second row blue
+   
     
     lw $a0, grid_x     # set X coordinate to 19
     lw $a1, grid_y     # set Y coordinate to 16
@@ -368,6 +366,7 @@ create_new_column:
       syscall
     
     continue:
+      jal no_more_gravity
       jal dropper
       la $t0, colorsArray
       
@@ -412,7 +411,10 @@ game_loop:
     beq $t8, 0x77, respond_to_w    # 'w'  
     beq $t8, 0x73, respond_to_s    # 's'
     beq $t8, 0x64, respond_to_d    # 'd'
-    beq $t8, 0x71, respond_to_q     # 'q'
+    beq $t8, 0x71, respond_to_q    # 'q'
+    beq $t8, 0x74, respond_to_t    # 't'
+    beq $t8, 0x78, respond_to_x    # 'x'  
+    beq $t8, 0x72, respond_to_r    # 'r' 
     
 
     # 2a. Check for collisions.
@@ -661,6 +663,7 @@ no_input:
     lw $s0, gravity_rate # load the gravity rate
     move $s1, $zero 
     horizontal_no:
+      blez $s0, jump_no
       addi $sp, $sp, -4   #save variable that is temporarily used
       sw $t3, 0($sp)
       addi $sp, $sp, -4   #save variable that is temporarily used
@@ -707,11 +710,13 @@ no_input:
       addi $sp, $sp, 4
       
       bne $v0, $t8, draw_column_and_create
-      
-      j jump_no
+      addi $s0, $s0, -1
+      addi $t3, $t3, 1 # configure so column is falling # updates gravity by adding 1 to the value in y_col.
+      j horizontal_no
       
     vertical_no:
-    
+      blez $s0, jump_no
+      
       addi $sp, $sp, -4   #save variable that is temporarily used
       sw $t3, 0($sp)
       addi $t3, $t3, 3
@@ -720,11 +725,13 @@ no_input:
       addi $sp, $sp, 4
       
       bne $v0, $t8, draw_column_and_create
+      addi $s0, $s0, -1
+      addi $t3, $t3, 1 # configure so column is falling # updates gravity by adding 1 to the value in y_col.
+      j vertical_no
+      
     
     jump_no:
-    
-    addi $t3, $t3, 1 # configure so column is falling # updates gravity by adding 1 to the value in y_col.
-    
+    jal increment_gravity
     jal draw_shape
     
     li $v0, 32
@@ -740,6 +747,10 @@ respond_to_q:
 
 # empty method...
 no_more_gravity:
+  lw $s0, gravity_rate
+  addi $s0, $zero, 0 # configure so column is falling # updates gravity by adding 1 to the value in y_col.
+  sw $s0, gravity_rate
+  jr $ra 
 
 gravity_loop:
     lw $s0, gravity_rate # load gravity rate
@@ -789,6 +800,14 @@ check_all_column_colours:
 # $t2 = the starting location for the line.
 # $t3 = location for line drawing to stop.
 
+# when 't' pushed, rotate the column/block.
+
+respond_to_t:
+jal toggle_draw_mode
+
+# add blocks to current column/row.
+respond_to_x:
+  jal draw_shape
 # When a pushed, move column to the left (col_x - 1, col_y)
 respond_to_a:
     addi $sp, $sp, -4   #save variable that is temporarily used
@@ -802,13 +821,16 @@ respond_to_a:
     addi $sp, $sp, 4
     lw $t2, 0($sp)
     addi $sp, $sp, 4
-    
+
     lw $t8, empty_color
     bne $v0, $t8, collision
     
     addi $t2, $t2, -1
     j game_loop
 
+
+respond_to_r:
+  jal draw_column_and_create
 # when d pushed, move column right (col_x + 1, col_y)
 respond_to_d:
     lw $a1, draw_mode
@@ -1607,3 +1629,5 @@ draw_shape:
   beq $a1, 0, draw_column
   # draw row
   beq $a1, 1, draw_row
+
+  
