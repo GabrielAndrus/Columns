@@ -672,7 +672,7 @@ draw_column_and_create:
   addi $s1, $zero, 0
   jal draw_shape # replace with draw_shape -- saves the shape once it collides
   jal check_column_colours
-  j create_new_column
+ # j create_new_column -- uncommenting this line will tamper with the rows/row collision. Do not uncomment and mark if you do.
 
 drop:
   jal dropper
