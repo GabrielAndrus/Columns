@@ -54,83 +54,81 @@ lw %reg, empty_color
 j colour_end_mac
 
 gogray:
-lw %reg, gray
+  lw %reg, gray
 
 colour_end_mac:
-.end_macro
-.macro colour_checker(%reg, %erase)
-push(%reg)
-push($ra)
-jal get_display_pixel
-move $t9, $v0
-addi $t5, $zero, 0
-addi $t6, $zero, 0
-jal check_positive
-pop($ra)
-lw %reg, 0($sp)
-push($ra)
-jal check_negative
-
-j grand_return
+  .end_macro
+  .macro colour_checker(%reg, %erase)
+  push(%reg)
+  push($ra)
+  jal get_display_pixel
+  move $t9, $v0
+  addi $t5, $zero, 0
+  addi $t6, $zero, 0
+  jal check_positive
+  pop($ra)
+  lw %reg, 0($sp)
+  push($ra)
+  jal check_negative
+  
+  j grand_return
 
 check_positive:
-push($ra)
+  push($ra)
 check_positive_loop:
-lw $ra, 0($sp)
-addi %reg, %reg, 1
-jal check_block
-addi $t5, $t5, 1
-bgtz %erase, positive_erase
-j check_positive_loop
+  lw $ra, 0($sp)
+  addi %reg, %reg, 1
+  jal check_block
+  addi $t5, $t5, 1
+  bgtz %erase, positive_erase
+  j check_positive_loop
 positive_erase:
-jal erase
-addi $t5, $t5, -2
-
-j check_positive_loop
-
-
+  jal erase
+  addi $t5, $t5, -2
+  
+  j check_positive_loop
 
 grand_return:
-pop($ra)
-pop(%reg)
-jr $ra
+  pop($ra)
+  pop(%reg)
+  jr $ra
 
 
 return:
-pop($ra)
-jr $ra
+  pop($ra)
+  jr $ra
 
 check_negative:
-push($ra)
+  push($ra)
 check_negative_loop:
-lw $ra, 0($sp)
-addi %reg, %reg, -1
-jal check_block
-addi $t6, $t6, 1
-bgtz %erase, negative_erase
-j check_negative_loop
+  lw $ra, 0($sp)
+  addi %reg, %reg, -1
+  jal check_block
+  addi $t6, $t6, 1
+  bgtz %erase, negative_erase
+  j check_negative_loop
 negative_erase:
-jal erase
-addi $t6, $t6, -2
-
-j check_negative_loop
+  jal erase
+  addi $t6, $t6, -2
+  
+  j check_negative_loop
 
 check_block:
-push($ra)
-jal get_display_pixel
-pop($ra)
-bne $v0, $t9, return
-jr $ra
+  push($ra)
+  jal get_display_pixel
+  pop($ra)
+  bne $v0, $t9, return
+  jr $ra
 
 
 erase:
-play_note(33, 84, 250, 0, 127)
-push($ra)
-push($t4)
-lw $t4, empty_color
-jal draw_pixel
-pop($t4)
-j return
+  play_note(33, 84, 250, 0, 127)
+  push($ra)
+  push($t4)
+  lw $t4, empty_color
+  jal draw_pixel
+  pop($t4)
+  j return
 
 .end_macro
 .macro rdiag_colour_checker(%erase)
@@ -153,146 +151,147 @@ jal rdcheck_negative
 j rdgrand_return
 
 rdcheck_positive:
-push($ra)
+  push($ra)
 rdcheck_positive_loop:
-lw $ra, 0($sp)
-addi $t2, $t2, 1
-addi $t3, $t3, 1
-jal rdcheck_block
-addi $t5, $t5, 1
-bgtz %erase, rdpositive_erase
-j rdcheck_positive_loop
+  lw $ra, 0($sp)
+  addi $t2, $t2, 1
+  addi $t3, $t3, 1
+  jal rdcheck_block
+  addi $t5, $t5, 1
+  bgtz %erase, rdpositive_erase
+  j rdcheck_positive_loop
 rdpositive_erase:
-jal rderase
-addi $t5, $t5, -2
-
-j rdcheck_positive_loop
+  jal rderase
+  addi $t5, $t5, -2
+  
+  j rdcheck_positive_loop
 
 
 
 rdgrand_return:
-pop($ra)
-pop($t3)
-pop($t2)
-jr $ra
+  pop($ra)
+  pop($t3)
+  pop($t2)
+  jr $ra
 
 
 rdreturn:
-pop($ra)
-jr $ra
+  pop($ra)
+  jr $ra
 
 rdcheck_negative:
-push($ra)
+  push($ra)
 rdcheck_negative_loop:
-lw $ra, 0($sp)
-addi $t2, $t2, -1
-addi $t3, $t3, -1
-jal rdcheck_block
-addi $t6, $t6, 1
-bgtz %erase, rdnegative_erase
-j rdcheck_negative_loop
+  lw $ra, 0($sp)
+  addi $t2, $t2, -1
+  addi $t3, $t3, -1
+  jal rdcheck_block
+  addi $t6, $t6, 1
+  bgtz %erase, rdnegative_erase
+  j rdcheck_negative_loop
 rdnegative_erase:
-jal rderase
-addi $t6, $t6, -2
-
-j rdcheck_negative_loop
+  jal rderase
+  addi $t6, $t6, -2
+  
+  j rdcheck_negative_loop
 
 rdcheck_block:
-push($ra)
-jal get_display_pixel
-pop($ra)
-bne $v0, $t9, rdreturn
-jr $ra
+  push($ra)
+  jal get_display_pixel
+  pop($ra)
+  bne $v0, $t9, rdreturn
+  jr $ra
 
 
 rderase:
-push($ra)
-push($t4)
-lw $t4, empty_color
-jal draw_pixel
-pop($t4)
-j rdreturn
-
-.end_macro
-.macro ldiag_colour_checker(%erase)
-push($t2)
-push($t3)
-push($ra)
-jal get_display_pixel
-move $t9, $v0
-addi $t5, $zero, 0
-addi $t6, $zero, 0
-jal ldcheck_positive
-pop($ra)
-pop($t3)
-pop($t2)
-push($t2)
-push($t3)
-push($ra)
-jal ldcheck_negative
-
-j ldgrand_return
+  push($ra)
+  push($t4)
+  lw $t4, empty_color
+  jal draw_pixel
+  pop($t4)
+  j rdreturn
+  
+  .end_macro
+  .macro ldiag_colour_checker(%erase)
+  push($t2)
+  push($t3)
+  push($ra)
+  jal get_display_pixel
+  move $t9, $v0
+  addi $t5, $zero, 0
+  addi $t6, $zero, 0
+  jal ldcheck_positive
+  pop($ra)
+  pop($t3)
+  pop($t2)
+  push($t2)
+  push($t3)
+  push($ra)
+  jal ldcheck_negative
+  
+  j ldgrand_return
 
 ldcheck_positive:
-push($ra)
+  push($ra)
 ldcheck_positive_loop:
-lw $ra, 0($sp)
-addi $t2, $t2, 1
-addi $t3, $t3, -1
-jal ldcheck_block
-addi $t5, $t5, 1
-bgtz %erase, ldpositive_erase
-j ldcheck_positive_loop
+  lw $ra, 0($sp)
+  addi $t2, $t2, 1
+  addi $t3, $t3, -1
+  jal ldcheck_block
+  addi $t5, $t5, 1
+  bgtz %erase, ldpositive_erase
+  j ldcheck_positive_loop
+  
 ldpositive_erase:
-jal lderase
-addi $t5, $t5, -2
-
-j ldcheck_positive_loop
+  jal lderase
+  addi $t5, $t5, -2
+  
+  j ldcheck_positive_loop
 
 
 
 ldgrand_return:
-pop($ra)
-pop($t3)
-pop($t2)
-jr $ra
+  pop($ra)
+  pop($t3)
+  pop($t2)
+  jr $ra
 
 
 ldreturn:
-pop($ra)
-jr $ra
+  pop($ra)
+  jr $ra
 
 ldcheck_negative:
-push($ra)
+  push($ra)
 ldcheck_negative_loop:
-lw $ra, 0($sp)
-addi $t2, $t2, -1
-addi $t3, $t3, 1
-jal ldcheck_block
-addi $t6, $t6, 1
-bgtz %erase, ldnegative_erase
-j ldcheck_negative_loop
+  lw $ra, 0($sp)
+  addi $t2, $t2, -1
+  addi $t3, $t3, 1
+  jal ldcheck_block
+  addi $t6, $t6, 1
+  bgtz %erase, ldnegative_erase
+  j ldcheck_negative_loop
 ldnegative_erase:
-jal lderase
-addi $t6, $t6, -2
-
-j ldcheck_negative_loop
+  jal lderase
+  addi $t6, $t6, -2
+  
+  j ldcheck_negative_loop
 
 ldcheck_block:
-push($ra)
-jal get_display_pixel
-pop($ra)
-bne $v0, $t9, ldreturn
-jr $ra
+  push($ra)
+  jal get_display_pixel
+  pop($ra)
+  bne $v0, $t9, ldreturn
+  jr $ra
 
 
 lderase:
-push($ra)
-push($t4)
-lw $t4, empty_color
-jal draw_pixel
-pop($t4)
-j ldreturn
+  push($ra)
+  push($t4)
+  lw $t4, empty_color
+  jal draw_pixel
+  pop($t4)
+  j ldreturn
 
 .end_macro
     .data
@@ -766,9 +765,9 @@ respond_to_w:
     move $t9, $a0   # store colour $a0($a3) to $t9
     lw $a0, 0($sp)
     addi $sp, $sp, 4
-    j game_loop
+    jal side_draw
 
-j game_loop # jump to game loop
+  j game_loop # jump to game loop
 # When pushed, move column to the right.
 
 get_display_pixel:
@@ -898,7 +897,7 @@ line_loop_start:
   addi $t2, $t2, 4        # move $t0 to the next pixel in the row.
   j line_loop_start            # jump to the start of the loop
 line_loop_end:
-jr $ra      
+  jr $ra      
 
 ##  The draw_rect function
 ##  - Draws a rectangle at a given X and Y coordinate 
