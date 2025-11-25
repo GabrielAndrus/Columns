@@ -807,6 +807,9 @@ jal toggle_draw_mode
 
 # add blocks to current column/row.
 respond_to_x:
+  beq $s6, 10, x_powerup # only activate this powerup if more than 10 blocks have been deleted
+
+x_powerup:
   jal draw_shape
 # When a pushed, move column to the left (col_x - 1, col_y)
 respond_to_a:
@@ -830,7 +833,13 @@ respond_to_a:
 
 
 respond_to_r:
+  li $v0, 32
+    li $a0, 500
+    syscall
   jal draw_column_and_create
+  li $v0, 32
+    li $a0, 500
+    syscall
 # when d pushed, move column right (col_x + 1, col_y)
 respond_to_d:
     lw $a1, draw_mode
@@ -1629,5 +1638,3 @@ draw_shape:
   beq $a1, 0, draw_column
   # draw row
   beq $a1, 1, draw_row
-
-  
