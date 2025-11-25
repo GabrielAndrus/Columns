@@ -22,6 +22,20 @@
     jal draw_pixel
   .end_macro
   
+  .macro play_note(%syscall, %note, %duration, %instrument, %volume)
+  li $v0, %syscall # Load the syscall into $v0.
+  li $a0, %note # load the note into $a0
+  li $a1, %duration # load duration into $a1
+  li $a2, %instrument # load instrument into $a2
+  li $a3, %volume # load volume into $a3
+  syscall # Write the input note to the system
+
+  # Sleep after the note
+  #li $v0, 32
+  #li $a0, 250
+  syscall
+ .end_macro # End the macro
+  
 # graity_fall macro makes it possible for the column to fall at different rates over time
 #.macro gravity_fall(%rate)
   #add $t3, $t3, %rate
@@ -40,82 +54,82 @@ lw %reg, empty_color
 j colour_end_mac
 
 gogray:
-lw %reg, gray
+  lw %reg, gray
 
 colour_end_mac:
-.end_macro
-.macro colour_checker(%reg, %erase)
-push(%reg)
-push($ra)
-jal get_display_pixel
-move $t9, $v0
-addi $t5, $zero, 0
-addi $t6, $zero, 0
-jal check_positive
-pop($ra)
-lw %reg, 0($sp)
-push($ra)
-jal check_negative
-
-j grand_return
+  .end_macro
+  .macro colour_checker(%reg, %erase)
+  push(%reg)
+  push($ra)
+  jal get_display_pixel
+  move $t9, $v0
+  addi $t5, $zero, 0
+  addi $t6, $zero, 0
+  jal check_positive
+  pop($ra)
+  lw %reg, 0($sp)
+  push($ra)
+  jal check_negative
+  
+  j grand_return
 
 check_positive:
-push($ra)
+  push($ra)
 check_positive_loop:
-lw $ra, 0($sp)
-addi %reg, %reg, 1
-jal check_block
-addi $t5, $t5, 1
-bgtz %erase, positive_erase
-j check_positive_loop
+  lw $ra, 0($sp)
+  addi %reg, %reg, 1
+  jal check_block
+  addi $t5, $t5, 1
+  bgtz %erase, positive_erase
+  j check_positive_loop
 positive_erase:
-jal erase
-addi $t5, $t5, -2
-
-j check_positive_loop
-
-
+  jal erase
+  addi $t5, $t5, -2
+  
+  j check_positive_loop
 
 grand_return:
-pop($ra)
-pop(%reg)
-jr $ra
+  pop($ra)
+  pop(%reg)
+  jr $ra
 
 
 return:
-pop($ra)
-jr $ra
+  pop($ra)
+  jr $ra
 
 check_negative:
-push($ra)
+  push($ra)
 check_negative_loop:
-lw $ra, 0($sp)
-addi %reg, %reg, -1
-jal check_block
-addi $t6, $t6, 1
-bgtz %erase, negative_erase
-j check_negative_loop
+  lw $ra, 0($sp)
+  addi %reg, %reg, -1
+  jal check_block
+  addi $t6, $t6, 1
+  bgtz %erase, negative_erase
+  j check_negative_loop
 negative_erase:
-jal erase
-addi $t6, $t6, -2
-
-j check_negative_loop
+  jal erase
+  addi $t6, $t6, -2
+  
+  j check_negative_loop
 
 check_block:
-push($ra)
-jal get_display_pixel
-pop($ra)
-bne $v0, $t9, return
-jr $ra
+  push($ra)
+  jal get_display_pixel
+  pop($ra)
+  bne $v0, $t9, return
+  jr $ra
 
 
 erase:
-push($ra)
-push($t4)
-lw $t4, empty_color
-jal draw_pixel
-pop($t4)
-j return
+  play_note(33, 84, 250, 0, 127)
+  addi $s6, $s6, 1
+  push($ra)
+  push($t4)
+  lw $t4, empty_color
+  jal draw_pixel
+  pop($t4)
+  j return
 
 .end_macro
 .macro rdiag_colour_checker(%erase)
@@ -138,146 +152,149 @@ jal rdcheck_negative
 j rdgrand_return
 
 rdcheck_positive:
-push($ra)
+  push($ra)
 rdcheck_positive_loop:
-lw $ra, 0($sp)
-addi $t2, $t2, 1
-addi $t3, $t3, 1
-jal rdcheck_block
-addi $t5, $t5, 1
-bgtz %erase, rdpositive_erase
-j rdcheck_positive_loop
+  lw $ra, 0($sp)
+  addi $t2, $t2, 1
+  addi $t3, $t3, 1
+  jal rdcheck_block
+  addi $t5, $t5, 1
+  bgtz %erase, rdpositive_erase
+  j rdcheck_positive_loop
 rdpositive_erase:
-jal rderase
-addi $t5, $t5, -2
-
-j rdcheck_positive_loop
+  jal rderase
+  addi $t5, $t5, -2
+  
+  j rdcheck_positive_loop
 
 
 
 rdgrand_return:
-pop($ra)
-pop($t3)
-pop($t2)
-jr $ra
+  pop($ra)
+  pop($t3)
+  pop($t2)
+  jr $ra
 
 
 rdreturn:
-pop($ra)
-jr $ra
+  pop($ra)
+  jr $ra
 
 rdcheck_negative:
-push($ra)
+  push($ra)
 rdcheck_negative_loop:
-lw $ra, 0($sp)
-addi $t2, $t2, -1
-addi $t3, $t3, -1
-jal rdcheck_block
-addi $t6, $t6, 1
-bgtz %erase, rdnegative_erase
-j rdcheck_negative_loop
+  lw $ra, 0($sp)
+  addi $t2, $t2, -1
+  addi $t3, $t3, -1
+  jal rdcheck_block
+  addi $t6, $t6, 1
+  bgtz %erase, rdnegative_erase
+  j rdcheck_negative_loop
 rdnegative_erase:
-jal rderase
-addi $t6, $t6, -2
-
-j rdcheck_negative_loop
+  jal rderase
+  addi $t6, $t6, -2
+  
+  j rdcheck_negative_loop
 
 rdcheck_block:
-push($ra)
-jal get_display_pixel
-pop($ra)
-bne $v0, $t9, rdreturn
-jr $ra
+  push($ra)
+  jal get_display_pixel
+  pop($ra)
+  bne $v0, $t9, rdreturn
+  jr $ra
 
 
 rderase:
-push($ra)
-push($t4)
-lw $t4, empty_color
-jal draw_pixel
-pop($t4)
-j rdreturn
-
-.end_macro
-.macro ldiag_colour_checker(%erase)
-push($t2)
-push($t3)
-push($ra)
-jal get_display_pixel
-move $t9, $v0
-addi $t5, $zero, 0
-addi $t6, $zero, 0
-jal ldcheck_positive
-pop($ra)
-pop($t3)
-pop($t2)
-push($t2)
-push($t3)
-push($ra)
-jal ldcheck_negative
-
-j ldgrand_return
+  addi $s6, $s6, 1
+  push($ra)
+  push($t4)
+  lw $t4, empty_color
+  jal draw_pixel
+  pop($t4)
+  j rdreturn
+  
+  .end_macro
+  .macro ldiag_colour_checker(%erase)
+  push($t2)
+  push($t3)
+  push($ra)
+  jal get_display_pixel
+  move $t9, $v0
+  addi $t5, $zero, 0
+  addi $t6, $zero, 0
+  jal ldcheck_positive
+  pop($ra)
+  pop($t3)
+  pop($t2)
+  push($t2)
+  push($t3)
+  push($ra)
+  jal ldcheck_negative
+  
+  j ldgrand_return
 
 ldcheck_positive:
-push($ra)
+  push($ra)
 ldcheck_positive_loop:
-lw $ra, 0($sp)
-addi $t2, $t2, 1
-addi $t3, $t3, -1
-jal ldcheck_block
-addi $t5, $t5, 1
-bgtz %erase, ldpositive_erase
-j ldcheck_positive_loop
+  lw $ra, 0($sp)
+  addi $t2, $t2, 1
+  addi $t3, $t3, -1
+  jal ldcheck_block
+  addi $t5, $t5, 1
+  bgtz %erase, ldpositive_erase
+  j ldcheck_positive_loop
+  
 ldpositive_erase:
-jal lderase
-addi $t5, $t5, -2
-
-j ldcheck_positive_loop
+  jal lderase
+  addi $t5, $t5, -2
+  
+  j ldcheck_positive_loop
 
 
 
 ldgrand_return:
-pop($ra)
-pop($t3)
-pop($t2)
-jr $ra
+  pop($ra)
+  pop($t3)
+  pop($t2)
+  jr $ra
 
 
 ldreturn:
-pop($ra)
-jr $ra
+  pop($ra)
+  jr $ra
 
 ldcheck_negative:
-push($ra)
+  push($ra)
 ldcheck_negative_loop:
-lw $ra, 0($sp)
-addi $t2, $t2, -1
-addi $t3, $t3, 1
-jal ldcheck_block
-addi $t6, $t6, 1
-bgtz %erase, ldnegative_erase
-j ldcheck_negative_loop
+  lw $ra, 0($sp)
+  addi $t2, $t2, -1
+  addi $t3, $t3, 1
+  jal ldcheck_block
+  addi $t6, $t6, 1
+  bgtz %erase, ldnegative_erase
+  j ldcheck_negative_loop
 ldnegative_erase:
-jal lderase
-addi $t6, $t6, -2
-
-j ldcheck_negative_loop
+  jal lderase
+  addi $t6, $t6, -2
+  
+  j ldcheck_negative_loop
 
 ldcheck_block:
-push($ra)
-jal get_display_pixel
-pop($ra)
-bne $v0, $t9, ldreturn
-jr $ra
+  push($ra)
+  jal get_display_pixel
+  pop($ra)
+  bne $v0, $t9, ldreturn
+  jr $ra
 
 
 lderase:
-push($ra)
-push($t4)
-lw $t4, empty_color
-jal draw_pixel
-pop($t4)
-j ldreturn
+  addi $s6, $s6, 1
+  push($ra)
+  push($t4)
+  lw $t4, empty_color
+  jal draw_pixel
+  pop($t4)
+  j ldreturn
 
 .end_macro
     .data
@@ -291,13 +308,15 @@ ADDR_DSPL:
 ADDR_KBRD:
     .word 0xffff0000
 order: .word 1, 2, 3 # Colors: upper pixel, middle pixel, lower pixel
-colorsArray: .word 0xff0000, 0x00ff00, 0x0000ff, 0xFFFF00, 0xFFA500, 0x800080 #Colors contains red, blue, green, yellow, orange, purple.
+colorsArray: .word 0xff0000, 0x00ff00, 0x0000ff, 0xFFFF00, 0xFFA500, 
+                  0x800080, 0xeb34c0, 0x34e2eb#Colors contains red, blue, green, yellow, orange, purple, pink, cyan
 grid_x: .word 1
 grid_y: .word 1
 grid_width: .word 6
 grid_height: .word 20
 empty_color: .word 0x000000
 gray: .word 0x777777
+draw_mode: .word 0 # 0 = column, 1 = row
 ##############################################################################
 # Mutable Data
 ##############################################################################
@@ -326,8 +345,11 @@ main:
     lw $a3, grid_height     # set rectangle height to 12
     add $t5, $zero, $t4
     jal draw_grid           # call the rectangle drawing code.
+    addi $s6, $s6, 0
     
 create_new_column:
+    jal toggle_draw_mode
+    play_note(33, 67, 250, 0, 127)
     lw $t2, grid_width  # $t2 stores the x-coord
     lw $t3, grid_x 
     srl $t2, $t2, 1
@@ -376,7 +398,7 @@ create_new_column:
     
 game_loop:
     # 1a. Check if key has been pressed
-    jal remove_column
+    jal remove_current_shape
     lw $t8, 0($t1)
     beq $t8, $zero, no_input
     lw $t8, 4($t1)  
@@ -388,8 +410,6 @@ game_loop:
     beq $t8, 0x73, respond_to_s    # 's'
     beq $t8, 0x64, respond_to_d    # 'd'
     beq $t8, 0x71, respond_to_q     # 'q'
-    
-    
     
 
     # 2a. Check for collisions.
@@ -416,7 +436,7 @@ side_draw:
     srl $t1, $t1, 1
     add $t3, $t3, $t1
     
-    jal draw_column
+    jal draw_shape
     
     lw $t3, 0($sp)
     addi $sp, $sp, 4
@@ -441,7 +461,7 @@ jr $ra
     # 5. Go back to step 1
     
 collision:  # When collision happens, draws the column where it was
-    jal draw_column 
+    jal draw_shape 
     
     li $v0, 32
     li $a0, 100
@@ -639,7 +659,7 @@ no_input:
     
     addi $t3, $t3, 1 # configure so column is falling
     
-    jal draw_column
+    jal draw_shape
     
     li $v0, 32
     li $a0, 500
@@ -649,28 +669,26 @@ no_input:
 
 
 respond_to_q:
-li $v0, 10
-syscall
+  li $v0, 10
+  syscall
 
 draw_column_and_create:
-
-
-addi $s1, $zero, 0
-jal draw_column
-jal check_column_colours
+  addi $s1, $zero, 0
+  jal draw_shape # replace with draw_shape -- saves the shape once it collides
+  jal check_column_colours
 
 drop:
-jal dropper
-
-
-bgtz $a1, check_all_column_colours
-
-j create_new_column
+  jal dropper
+  
+  
+  bgtz $a1, check_all_column_colours
+  
+  j create_new_column
 check_all_column_colours:
-jal check_all_colour
-bgtz $s1, drop
-
-j create_new_column
+  jal check_all_colour
+  bgtz $s1, drop
+  
+  j create_new_column
 
 ##  The draw_line function
 ##  - Draws a horizontal line from a given X and Y coordinate 
@@ -705,6 +723,25 @@ respond_to_a:
 
 # when d pushed, move column right (col_x + 1, col_y)
 respond_to_d:
+    lw $a1, draw_mode
+    beq $a1, 0, vertical
+      # draw row
+    horizontal:
+    addi $sp, $sp, -4   #save variable that is temporarily used
+    sw $t2, 0($sp)
+    addi $sp, $sp, -4   #save variable that is temporarily used
+    sw $t3, 0($sp)
+    addi $t2, $t2, 3
+    jal get_display_pixel
+    lw $t3, 0($sp)
+    addi $sp, $sp, 4
+    lw $t2, 0($sp)
+    addi $sp, $sp, 4
+    lw $t8, empty_color
+    bne $v0, $t8, collision
+    j good
+
+    vertical:
     addi $sp, $sp, -4   #save variable that is temporarily used
     sw $t2, 0($sp)
     addi $sp, $sp, -4   #save variable that is temporarily used
@@ -719,6 +756,7 @@ respond_to_d:
     lw $t8, empty_color
     bne $v0, $t8, collision
     
+    good:
     addi $t2, $t2, 1
     j game_loop
 
@@ -736,7 +774,7 @@ respond_to_s:
     
     addi $t3, $t3, 1 # configure so column is falling
     
-    jal draw_column
+    jal draw_shape
     
     j game_loop
 
@@ -750,9 +788,9 @@ respond_to_w:
     move $t9, $a0   # store colour $a0($a3) to $t9
     lw $a0, 0($sp)
     addi $sp, $sp, 4
-    j game_loop
+    jal side_draw
 
-j game_loop # jump to game loop
+  j game_loop # jump to game loop
 # When pushed, move column to the right.
 
 get_display_pixel:
@@ -776,7 +814,6 @@ get_display_pixel:
     lw $t2, 0($sp)
     addi $sp, $sp, 4
     jr  $ra
-
 draw_column:
     # Save return address
     addi $sp, $sp, -4
@@ -807,7 +844,6 @@ draw_column:
     addi $sp, $sp, 4
     
     jr $ra
-
 draw_pixel:
     # Calculate address: (y * 256 + x) * 4 + base_address
     li $t6, 32
@@ -826,7 +862,6 @@ draw_pixel:
     lw $t7, 0($sp)  #getting back $t7 a random colour
     addi $sp, $sp, 4
     jr $ra
-
 remove_column:
     # Save return address
     addi $sp, $sp, -4
@@ -854,9 +889,7 @@ remove_column:
     lw $ra, 0($sp)
     addi $sp, $sp, 4
     
-    jr $ra
-
-    
+    jr $ra  
 clear_loop:
     sw $t5, 0($t7)     # Write black pixel for clearing
     addi $t7, $t7, 4 
@@ -872,24 +905,22 @@ clear_loop:
 
     # 5. Go back to Step 1
     j game_loop
-
-
 draw_line:
-sll $a0, $a0, 2         # multiply the X coordinate by 4 to get the horizontal offset
-add $t2, $t0, $a0       # add this horizontal offset to $t0, store the result in $t2
-sll $a1, $a1, 7         # multiply the Y coordinate by 128 to get the vertical offset
-add $t2, $t2, $a1       # add this vertical offset to $t2
-
-# Make a loop to draw a line.
-sll $a2, $a2, 2         # calculate the difference between the starting value for $t2 and the end value.
-add $t3, $t2, $a2       # set stopping location for $t2
+  sll $a0, $a0, 2         # multiply the X coordinate by 4 to get the horizontal offset
+  add $t2, $t0, $a0       # add this horizontal offset to $t0, store the result in $t2
+  sll $a1, $a1, 7         # multiply the Y coordinate by 128 to get the vertical offset
+  add $t2, $t2, $a1       # add this vertical offset to $t2
+  
+  # Make a loop to draw a line.
+  sll $a2, $a2, 2         # calculate the difference between the starting value for $t2 and the end value.
+  add $t3, $t2, $a2       # set stopping location for $t2
 line_loop_start:
-beq $t2, $t3, line_loop_end  # check if $t2 has reached the final location of the line
-sw $t5, 0( $t2 )        # paint the current pixel
-addi $t2, $t2, 4        # move $t0 to the next pixel in the row.
-j line_loop_start            # jump to the start of the loop
+  beq $t2, $t3, line_loop_end  # check if $t2 has reached the final location of the line
+  sw $t5, 0( $t2 )        # paint the current pixel
+  addi $t2, $t2, 4        # move $t0 to the next pixel in the row.
+  j line_loop_start            # jump to the start of the loop
 line_loop_end:
-jr $ra      
+  jr $ra      
 
 ##  The draw_rect function
 ##  - Draws a rectangle at a given X and Y coordinate 
@@ -901,29 +932,29 @@ jr $ra
 draw_rect:
 # no registers to initialize (use $a3 as the loop variable)
 rect_loop_start:
-beq $a3, $zero, rect_loop_end   # test if the stopping condition has been satisfied
-addi $sp, $sp, -4               # move the stack pointer to an empty location
-sw $ra, 0($sp)                  # push $ra onto the stack
-addi $sp, $sp, -4               # move the stack pointer to an empty location
-sw $a0, 0($sp)                  # push $a0 onto the stack
-addi $sp, $sp, -4               # move the stack pointer to an empty location
-sw $a1, 0($sp)                  # push $a1 onto the stack
-addi $sp, $sp, -4               # move the stack pointer to an empty location
-sw $a2, 0($sp)                  # push $a2 onto the stack
-
-jal draw_line                   # call the draw_line function.
-
-lw $a2, 0($sp)                  # pop $a2 from the stack
-addi $sp, $sp, 4                # move the stack pointer to the top stack element
-lw $a1, 0($sp)                  # pop $a1 from the stack
-addi $sp, $sp, 4                # move the stack pointer to the top stack element
-lw $a0, 0($sp)                  # pop $a0 from the stack
-addi $sp, $sp, 4                # move the stack pointer to the top stack element
-lw $ra, 0($sp)                  # pop $ra from the stack
-addi $sp, $sp, 4                # move the stack pointer to the top stack element
-addi $a1, $a1, 1                # move the Y coordinate down one row in the bitmap
-addi $a3, $a3, -1               # decrement loop variable $a3 by 1
-j rect_loop_start               # jump to the top of the loop.
+  beq $a3, $zero, rect_loop_end   # test if the stopping condition has been satisfied
+  addi $sp, $sp, -4               # move the stack pointer to an empty location
+  sw $ra, 0($sp)                  # push $ra onto the stack
+  addi $sp, $sp, -4               # move the stack pointer to an empty location
+  sw $a0, 0($sp)                  # push $a0 onto the stack
+  addi $sp, $sp, -4               # move the stack pointer to an empty location
+  sw $a1, 0($sp)                  # push $a1 onto the stack
+  addi $sp, $sp, -4               # move the stack pointer to an empty location
+  sw $a2, 0($sp)                  # push $a2 onto the stack
+  
+  jal draw_line                   # call the draw_line function.
+  
+  lw $a2, 0($sp)                  # pop $a2 from the stack
+  addi $sp, $sp, 4                # move the stack pointer to the top stack element
+  lw $a1, 0($sp)                  # pop $a1 from the stack
+  addi $sp, $sp, 4                # move the stack pointer to the top stack element
+  lw $a0, 0($sp)                  # pop $a0 from the stack
+  addi $sp, $sp, 4                # move the stack pointer to the top stack element
+  lw $ra, 0($sp)                  # pop $ra from the stack
+  addi $sp, $sp, 4                # move the stack pointer to the top stack element
+  addi $a1, $a1, 1                # move the Y coordinate down one row in the bitmap
+  addi $a3, $a3, -1               # decrement loop variable $a3 by 1
+  j rect_loop_start               # jump to the top of the loop.
 rect_loop_end:
 jr $ra                          # return to the calling program.
 
@@ -937,51 +968,51 @@ jr $ra                          # return to the calling program.
 # $a3 = the height of the grid
 draw_grid:
 
-addi $sp, $sp, -4               # move the stack pointer to an empty location
-sw $ra, 0($sp)                  # push $ra onto the stack
-
-addi $sp, $sp, -4               # move the stack pointer to an empty location
-sw $a0, 0($sp)                  # push $a0 onto the stack
-addi $sp, $sp, -4               # move the stack pointer to an empty location
-sw $a1, 0($sp)                  # push $a1 onto the stack
-addi $sp, $sp, -4               # move the stack pointer to an empty location
-sw $a2, 0($sp)                  # push $a2 onto the stack
-addi $sp, $sp, -4               # move the stack pointer to an empty location
-sw $a3, 0($sp)                  # push $a3 onto the stack
-
-jal draw_line
-sub $a0, $t3, $t0
-sub $a0, $a0, $a1
-srl $a0, $a0, 2
-srl $a1, $a1, 7
-addi $a2, $zero, 1
-
-jal draw_rect
-
-lw $a3, 0($sp)                  # pop $a3 from the stack
-addi $sp, $sp, 4                # move sp to the topp stack element
-lw $a2, 0($sp)                  # pop $a2 from the stack
-addi $sp, $sp, 4                # move the stack pointer to the top stack element
-lw $a1, 0($sp)                  # pop $a1 from the stack
-addi $sp, $sp, 4                # move the stack pointer to the top stack element
-lw $a0, 0($sp)                  # pop $a0 from the stack
-addi $sp, $sp, 4                # move the stack pointer to the top stack element
-
-addi $sp, $sp, -4               # move the stack pointer to an empty location
-sw $a2, 0($sp)                  # push $a2 onto the stack
-
-addi $a2, $zero, 1
-
-jal draw_rect
-lw $a2, 0($sp)                  # pop $a2 from the stack
-addi $sp, $sp, 4                # move the stack pointer to the top stack element
-addi $a1, $a1, -1
-jal draw_line
-
-lw $ra, 0($sp)                  # pop $a0 from the stack
-addi $sp, $sp, 4                # move the stack pointer to the top stack element
-
-jr $ra
+  addi $sp, $sp, -4               # move the stack pointer to an empty location
+  sw $ra, 0($sp)                  # push $ra onto the stack
+  
+  addi $sp, $sp, -4               # move the stack pointer to an empty location
+  sw $a0, 0($sp)                  # push $a0 onto the stack
+  addi $sp, $sp, -4               # move the stack pointer to an empty location
+  sw $a1, 0($sp)                  # push $a1 onto the stack
+  addi $sp, $sp, -4               # move the stack pointer to an empty location
+  sw $a2, 0($sp)                  # push $a2 onto the stack
+  addi $sp, $sp, -4               # move the stack pointer to an empty location
+  sw $a3, 0($sp)                  # push $a3 onto the stack
+  
+  jal draw_line
+  sub $a0, $t3, $t0
+  sub $a0, $a0, $a1
+  srl $a0, $a0, 2
+  srl $a1, $a1, 7
+  addi $a2, $zero, 1
+  
+  jal draw_rect
+  
+  lw $a3, 0($sp)                  # pop $a3 from the stack
+  addi $sp, $sp, 4                # move sp to the topp stack element
+  lw $a2, 0($sp)                  # pop $a2 from the stack
+  addi $sp, $sp, 4                # move the stack pointer to the top stack element
+  lw $a1, 0($sp)                  # pop $a1 from the stack
+  addi $sp, $sp, 4                # move the stack pointer to the top stack element
+  lw $a0, 0($sp)                  # pop $a0 from the stack
+  addi $sp, $sp, 4                # move the stack pointer to the top stack element
+  
+  addi $sp, $sp, -4               # move the stack pointer to an empty location
+  sw $a2, 0($sp)                  # push $a2 onto the stack
+  
+  addi $a2, $zero, 1
+  
+  jal draw_rect
+  lw $a2, 0($sp)                  # pop $a2 from the stack
+  addi $sp, $sp, 4                # move the stack pointer to the top stack element
+  addi $a1, $a1, -1
+  jal draw_line
+  
+  lw $ra, 0($sp)                  # pop $a0 from the stack
+  addi $sp, $sp, 4                # move the stack pointer to the top stack element
+  
+  jr $ra
 
 ##  The generate_random_colour function
 ##  - Draws a rectangle at a given X and Y coordinate 
@@ -989,108 +1020,104 @@ jr $ra
 # $t4 = array of colours
 # $v0, $a0, $a1 configured for random number generation as per the handout.
 generate_random_colour:
-addi $sp, $sp, -4
-sw   $a0, 0($sp)
-addi $sp, $sp, -4
-sw   $a1, 0($sp)
-
-
-li $v0, 42
-li $a0, 0
-li $a1, 5
-syscall
-move $v0, $a0
-
-addi $sp, $sp, 4
-lw   $a1, 0($sp)
-addi $sp, $sp, 4
-lw   $a0, 0($sp)
-
-jr $ra
+  addi $sp, $sp, -4
+  sw   $a0, 0($sp)
+  addi $sp, $sp, -4
+  sw   $a1, 0($sp)
+  
+  
+  li $v0, 42
+  li $a0, 0
+  li $a1, 8
+  syscall
+  move $v0, $a0
+  
+  addi $sp, $sp, 4
+  lw   $a1, 0($sp)
+  addi $sp, $sp, 4
+  lw   $a0, 0($sp)
+  
+  jr $ra
 
 generate_random_column_colours:
-addi $sp, $sp, -4
-sw   $ra, 0($sp)
-
-la   $t8, colorsArray    # base of colour array
-
-# top colour
-jal  generate_random_colour
-sll  $t1, $v0, 2         # index * 4
-add  $t1, $t8, $t1
-lw   $t5, 0($t1)
-
-# middle colour
-jal  generate_random_colour
-sll  $t1, $v0, 2
-add  $t1, $t8, $t1
-lw   $t6, 0($t1)
-
-# bottom colour
-jal  generate_random_colour
-sll  $t1, $v0, 2
-add  $t1, $t8, $t1
-lw   $t7, 0($t1)
-
-lw   $ra, 0($sp)
-addi $sp, $sp, 4
-jr   $ra
-
-
-
+  addi $sp, $sp, -4
+  sw   $ra, 0($sp)
+  
+  la   $t8, colorsArray    # base of colour array
+  
+  # top colour
+  jal  generate_random_colour
+  sll  $t1, $v0, 2         # index * 4
+  add  $t1, $t8, $t1
+  lw   $t5, 0($t1)
+  
+  # middle colour
+  jal  generate_random_colour
+  sll  $t1, $v0, 2
+  add  $t1, $t8, $t1
+  lw   $t6, 0($t1)
+  
+  # bottom colour
+  jal  generate_random_colour
+  sll  $t1, $v0, 2
+  add  $t1, $t8, $t1
+  lw   $t7, 0($t1)
+  
+  lw   $ra, 0($sp)
+  addi $sp, $sp, 4
+  jr   $ra
+  
 dropper:
-lw $t0, ADDR_DSPL
-addi $a1, $zero,0
-push($ra)
-push($s1)
-push($s2)
-push($s3)
-push($s4)
-push($s5)
-push($s6)
-push($s7)
-
-lw $s1, grid_width
-lw $s2, grid_height
-lw $s3, grid_x
-lw $s4, grid_y
-
-add $s1, $s1, $s3   # end loc
-add $s2, $s2, $s4
-
-addi $s2, $s2, -2
-addi $s3, $s3, 1
-
-addi $s6, $zero, 1
-loadcolour($s6)
-addi $s7, $zero, 0 
-loadcolour($s7)
+  lw $t0, ADDR_DSPL
+  addi $a1, $zero,0
+  push($ra)
+  push($s1)
+  push($s2)
+  push($s3)
+  push($s4)
+  push($s5)
+  push($s6)
+  push($s7)
+  
+  lw $s1, grid_width
+  lw $s2, grid_height
+  lw $s3, grid_x
+  lw $s4, grid_y
+  
+  add $s1, $s1, $s3   # end loc
+  add $s2, $s2, $s4
+  
+  addi $s2, $s2, -2
+  addi $s3, $s3, 1
+  
+  addi $s6, $zero, 1
+  loadcolour($s6)
+  addi $s7, $zero, 0 
+  loadcolour($s7)
 
 drop_loop:
-bge $s3, $s1, drop_end
-jal drop_column
-addi $s3, $s3, 1
-j drop_loop
+  bge $s3, $s1, drop_end
+  jal drop_column
+  addi $s3, $s3, 1
+  j drop_loop
 drop_end:
 
-pop($s7)
-pop($s6)
-pop($s5)
-pop($s4)
-pop($s3)
-pop($s2)
-pop($s1)
-pop($ra)
-
-
-jr $ra
-
-
+  pop($s7)
+  pop($s6)
+  pop($s5)
+  pop($s4)
+  pop($s3)
+  pop($s2)
+  pop($s1)
+  pop($ra)
+  
+  
+  jr $ra
 drop_column:
-push($ra)
-push($s2)
-push($s5)
-lw $s5, empty_color
+  push($ra)
+  push($s2)
+  push($s5)
+  lw $s5, empty_color
 drop_column_loop:
     ble $s2, $s4, drop_column_end
     
@@ -1140,58 +1167,57 @@ drop_column_loop:
     j drop_column_loop
 drop_column_end:
 
-pop($s5)
-pop($s2)
-pop($ra)
-jr $ra
-
+  pop($s5)
+  pop($s2)
+  pop($ra)
+  jr $ra
 check_all_colour:
-lw $t0, ADDR_DSPL
-addi $a1, $zero,0
-push($ra)
-push($s2)
-push($s3)
-push($s4)
-push($s5)
-push($s6)
-push($s7)
-
-lw $s1, grid_width
-lw $s2, grid_height
-lw $s3, grid_x
-lw $s4, grid_y
-
-
-add $s2, $s2, $s4
-add $s4, $s1, $s3   # end loc
-
-addi $s2, $s2, -2
-addi $s3, $s3, 1
-
-addi $s6, $zero, 1
-loadcolour($s6)
-addi $s7, $zero, 0 
-loadcolour($s7)
-add $s1, $zero, 0
+  lw $t0, ADDR_DSPL
+  addi $a1, $zero,0
+  push($ra)
+  push($s2)
+  push($s3)
+  push($s4)
+  push($s5)
+  push($s6)
+  push($s7)
+  
+  lw $s1, grid_width
+  lw $s2, grid_height
+  lw $s3, grid_x
+  lw $s4, grid_y
+  
+  
+  add $s2, $s2, $s4
+  add $s4, $s1, $s3   # end loc
+  
+  addi $s2, $s2, -2
+  addi $s3, $s3, 1
+  
+  addi $s6, $zero, 1
+  loadcolour($s6)
+  addi $s7, $zero, 0 
+  loadcolour($s7)
+  add $s1, $zero, 0
 check_all_loop:
-bge $s3, $s4, check_all_end
-add $t2, $zero, $s3
-add $t3, $zero, $s2
-jal check_column_colours
-addi $s3, $s3, 1
-j check_all_loop
+  bge $s3, $s4, check_all_end
+  add $t2, $zero, $s3
+  add $t3, $zero, $s2
+  jal check_column_colours
+  addi $s3, $s3, 1
+  j check_all_loop
 check_all_end:
 
-pop($s7)
-pop($s6)
-pop($s5)
-pop($s4)
-pop($s3)
-pop($s2)
-pop($ra)
-
-
-jr $ra
+  pop($s7)
+  pop($s6)
+  pop($s5)
+  pop($s4)
+  pop($s3)
+  pop($s2)
+  pop($ra)
+  
+  
+  jr $ra
 
 # Display the "Game over" screen
 game_over:
@@ -1199,8 +1225,6 @@ game_over:
   li $t0, 0x10008000 # reset the displaay addressa
   jal draw_GAME_OVER
   jr $ra
-
-
 draw_GAME_OVER:
   jal draw_GAME
   jal draw_OVER
@@ -1335,7 +1359,7 @@ draw_R:
   PIXEL(20, 14, 0xffff0000)
   PIXEL(20, 15, 0xffff0000)
   jr $ra
-  
+
 # Draw "GAME" on the bitmap
 draw_GAME:
   li $t0, 0x10008000
@@ -1366,3 +1390,76 @@ reset_loop:
     addi $t2, $t2, -1         # decrement counter
     bgtz $t2, reset_loop
     jr   $ra
+
+toggle_draw_mode:
+  la $a1, draw_mode
+  lw $a0, 0($a1)
+  xori $a0, $a0, 1
+  sw $a0, 0($a1)
+  jr $ra
+
+remove_current_shape:
+    # Save return address
+    addi $sp, $sp, -4
+    sw $ra, 0($sp)
+    
+    # Save current colors
+    push($a3)
+    push($t7)
+    push($t9)
+    
+    # Set all colors to black
+    lw $a3, empty_color
+    move $t7, $a3
+    move $t9, $a3
+    
+    # Draw the shape in black to erase it
+    jal draw_shape
+    
+    # Restore colors
+    pop($t9)
+    pop($t7)
+    pop($a3)
+    
+    # Restore and return
+    lw $ra, 0($sp)
+    addi $sp, $sp, 4
+    jr $ra
+
+draw_row:
+    # Save return address
+    addi $sp, $sp, -4
+    sw $ra, 0($sp)
+    push($s1)
+    # Draw all three pixels at current column position
+    move $s1, $t2   # Save base y position
+    
+    # Draw top pixel (original y)
+    move $t4, $a3
+    jal draw_pixel
+    
+    # Draw middle pixel (y + 1)
+    addi $t2, $s1, 1
+    move $t4, $t7
+    jal draw_pixel
+    
+    # Draw bottom pixel (y + 2)  
+    addi $t2, $s1, 2
+    move $t4, $t9
+    jal draw_pixel
+    
+    # Restore original y position
+    move $t2, $s1
+    pop($s1)
+    # Restore and return
+    lw $ra, 0($sp)
+    addi $sp, $sp, 4
+    
+    jr $ra
+
+draw_shape:
+  # draw column
+  lw $a1, draw_mode
+  beq $a1, 0, draw_column
+  # draw row
+  beq $a1, 1, draw_row
