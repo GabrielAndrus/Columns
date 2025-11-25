@@ -123,6 +123,7 @@ check_block:
 
 erase:
   play_note(33, 84, 250, 0, 127)
+  addi $s6, $s6, 1
   push($ra)
   push($t4)
   lw $t4, empty_color
@@ -204,6 +205,7 @@ rdcheck_block:
 
 
 rderase:
+  addi $s6, $s6, 1
   push($ra)
   push($t4)
   lw $t4, empty_color
@@ -286,6 +288,7 @@ ldcheck_block:
 
 
 lderase:
+  addi $s6, $s6, 1
   push($ra)
   push($t4)
   lw $t4, empty_color
@@ -307,13 +310,15 @@ ADDR_KBRD:
 order: .word 1, 2, 3 # Colors: upper pixel, middle pixel, lower pixel
 colorsArray: .word 0xff0000, 0x00ff00, 0x0000ff, 0xFFFF00, 0xFFA500, 
                   0x800080, 0xeb34c0, 0x34e2eb#Colors contains red, blue, green, yellow, orange, purple, pink, cyan
-grid_x: .word 1
-grid_y: .word 1
-grid_width: .word 6
+grid_x: .word 3
+grid_y: .word 3
+grid_width: .word 15
 grid_height: .word 20
 empty_color: .word 0x000000
 gray: .word 0x777777
 draw_mode: .word 0 # 0 = column, 1 = row
+gravity_rate: .word 1 # rate at which the pixel falls. 
+max_gravity: .word 5 # maximum gravity
 ##############################################################################
 # Mutable Data
 ##############################################################################
@@ -342,6 +347,7 @@ main:
     lw $a3, grid_height     # set rectangle height to 12
     add $t5, $zero, $t4
     jal draw_grid           # call the rectangle drawing code.
+    addi $s6, $s6, 0
     
 create_new_column:
     jal toggle_draw_mode
@@ -357,39 +363,40 @@ create_new_column:
     bne $v0, $t3, end_game
     j continue
     end_game:
-    jal game_over
-    li $v0, 10
-    syscall
+      jal game_over
+      li $v0, 10
+      syscall
     
     continue:
-    la $t0, colorsArray
-    
-    jal generate_random_colour
-    sll  $t1, $v0, 2         # index * 4
-    add  $t1, $t0, $t1
-    lw   $a3, 0($t1)
-    
-    jal generate_random_colour
-    sll  $t1, $v0, 2         # index * 4
-    add  $t1, $t0, $t1
-    lw   $t7, 0($t1)
-    
-    jal generate_random_colour
-    sll  $t1, $v0, 2         # index * 4
-    add  $t1, $t0, $t1
-    lw   $t9, 0($t1)
-    
-    jal side_draw
-    
-    lw $t0, ADDR_DSPL
-    lw $t1, ADDR_KBRD
-    lw $t2, grid_width  # $t2 stores the x-coord
-    lw $t3, grid_x 
-    srl $t2, $t2, 1
-    add $t2, $t2, $t3
-    lw $t3, grid_y  # $t3 stores the y-coord
-    addi $t3, $t3, 1
-    
+      jal dropper
+      la $t0, colorsArray
+      
+      jal generate_random_colour
+      sll  $t1, $v0, 2         # index * 4
+      add  $t1, $t0, $t1
+      lw   $a3, 0($t1)
+      
+      jal generate_random_colour
+      sll  $t1, $v0, 2         # index * 4
+      add  $t1, $t0, $t1
+      lw   $t7, 0($t1)
+      
+      jal generate_random_colour
+      sll  $t1, $v0, 2         # index * 4
+      add  $t1, $t0, $t1
+      lw   $t9, 0($t1)
+      
+      jal side_draw
+      
+      lw $t0, ADDR_DSPL
+      lw $t1, ADDR_KBRD
+      lw $t2, grid_width  # $t2 stores the x-coord
+      lw $t3, grid_x 
+      srl $t2, $t2, 1
+      add $t2, $t2, $t3
+      lw $t3, grid_y  # $t3 stores the y-coord
+      addi $t3, $t3, 1
+      
     
     
 game_loop:
@@ -475,6 +482,11 @@ check_column_colours:
     push($ra)
     push($t3)
     addi $t3, $t3, 2
+    j check_start
+check_colour:
+    push($ra)
+    push($t3)
+    j check_start
     
 check_start:
     addi $a3, $zero, 0
@@ -642,18 +654,76 @@ erase_this_block:
     pop($ra)
     jr $ra
 
-no_input:   
-    lw $t8, empty_color
-    addi $sp, $sp, -4   #save variable that is temporarily used
-    sw $t3, 0($sp)
-    addi $t3, $t3, 3
-    jal get_display_pixel
-    lw $t3, 0($sp)
-    addi $sp, $sp, 4
+no_input:
+    lw $a1, draw_mode
+    beq $a1, 0, vertical_no
+    lw $t8, empty_color # load empty color
+    lw $s0, gravity_rate # load the gravity rate
+    move $s1, $zero 
+    horizontal_no:
+      addi $sp, $sp, -4   #save variable that is temporarily used
+      sw $t3, 0($sp)
+      addi $sp, $sp, -4   #save variable that is temporarily used
+      sw $t2, 0($sp)
+      
+      addi $t3, $t3, 1
+      jal get_display_pixel
+      
+      lw $t2, 0($sp)
+      addi $sp, $sp, 4
+      lw $t3, 0($sp)
+      addi $sp, $sp, 4
+      
+      bne $v0, $t8, draw_column_and_create
+      
+      addi $sp, $sp, -4   #save variable that is temporarily used
+      sw $t3, 0($sp)
+      addi $sp, $sp, -4   #save variable that is temporarily used
+      sw $t2, 0($sp)
+      
+      addi $t3, $t3, 1
+      addi $t2, $t2, 1
+      jal get_display_pixel
+      
+      lw $t2, 0($sp)
+      addi $sp, $sp, 4
+      lw $t3, 0($sp)
+      addi $sp, $sp, 4
+      
+      bne $v0, $t8, draw_column_and_create
+      
+      addi $sp, $sp, -4   #save variable that is temporarily used
+      sw $t3, 0($sp)
+      addi $sp, $sp, -4   #save variable that is temporarily used
+      sw $t2, 0($sp)
+      
+      addi $t3, $t3, 1
+      addi $t2, $t2, 2
+      jal get_display_pixel
+      
+      lw $t2, 0($sp)
+      addi $sp, $sp, 4
+      lw $t3, 0($sp)
+      addi $sp, $sp, 4
+      
+      bne $v0, $t8, draw_column_and_create
+      
+      j jump_no
+      
+    vertical_no:
     
-    bne $v0, $t8, draw_column_and_create
+      addi $sp, $sp, -4   #save variable that is temporarily used
+      sw $t3, 0($sp)
+      addi $t3, $t3, 3
+      jal get_display_pixel
+      lw $t3, 0($sp)
+      addi $sp, $sp, 4
+      
+      bne $v0, $t8, draw_column_and_create
     
-    addi $t3, $t3, 1 # configure so column is falling
+    jump_no:
+    
+    addi $t3, $t3, 1 # configure so column is falling # updates gravity by adding 1 to the value in y_col.
     
     jal draw_shape
     
@@ -668,11 +738,32 @@ respond_to_q:
   li $v0, 10
   syscall
 
+# empty method...
+no_more_gravity:
+
+gravity_loop:
+    lw $s0, gravity_rate # load gravity rate
+    lw $s1, max_gravity # load max gravity
+    beq $s0, $s1, no_more_gravity # when gravity rate = max gravity rate.
+
+    jal increment_gravity 
+
+    j gravity_loop
+
+increment_gravity:
+  lw $s0, gravity_rate
+  addi $s0, $s0, 1 # configure so column is falling # updates gravity by adding 1 to the value in y_col.
+  sw $s0, gravity_rate
+  jr $ra 
+
+change_gravity:
+  addi $t3, $t3, 1 # gravity
+  jr $ra
+
 draw_column_and_create:
   addi $s1, $zero, 0
   jal draw_shape # replace with draw_shape -- saves the shape once it collides
   jal check_column_colours
- # j create_new_column -- uncommenting this line will tamper with the rows/row collision. Do not uncomment and mark if you do.
 
 drop:
   jal dropper
@@ -720,6 +811,25 @@ respond_to_a:
 
 # when d pushed, move column right (col_x + 1, col_y)
 respond_to_d:
+    lw $a1, draw_mode
+    beq $a1, 0, vertical
+      # draw row
+    horizontal:
+    addi $sp, $sp, -4   #save variable that is temporarily used
+    sw $t2, 0($sp)
+    addi $sp, $sp, -4   #save variable that is temporarily used
+    sw $t3, 0($sp)
+    addi $t2, $t2, 3
+    jal get_display_pixel
+    lw $t3, 0($sp)
+    addi $sp, $sp, 4
+    lw $t2, 0($sp)
+    addi $sp, $sp, 4
+    lw $t8, empty_color
+    bne $v0, $t8, collision
+    j good
+
+    vertical:
     addi $sp, $sp, -4   #save variable that is temporarily used
     sw $t2, 0($sp)
     addi $sp, $sp, -4   #save variable that is temporarily used
@@ -734,12 +844,67 @@ respond_to_d:
     lw $t8, empty_color
     bne $v0, $t8, collision
     
+    good:
     addi $t2, $t2, 1
     j game_loop
 
 # When s pushed, shift column down (col_x, col_y + 1)
 respond_to_s:
+    lw $a1, draw_mode
+    beq $a1, 0, vertical_no
     lw $t8, empty_color
+    
+    horizontal_s:
+    addi $sp, $sp, -4   #save variable that is temporarily used
+    sw $t3, 0($sp)
+    addi $sp, $sp, -4   #save variable that is temporarily used
+    sw $t2, 0($sp)
+    
+    addi $t3, $t3, 1
+    jal get_display_pixel
+    
+    lw $t2, 0($sp)
+    addi $sp, $sp, 4
+    lw $t3, 0($sp)
+    addi $sp, $sp, 4
+    
+    bne $v0, $t8, draw_column_and_create
+    
+    addi $sp, $sp, -4   #save variable that is temporarily used
+    sw $t3, 0($sp)
+    addi $sp, $sp, -4   #save variable that is temporarily used
+    sw $t2, 0($sp)
+    
+    addi $t3, $t3, 1
+    addi $t2, $t2, 1
+    jal get_display_pixel
+    
+    lw $t2, 0($sp)
+    addi $sp, $sp, 4
+    lw $t3, 0($sp)
+    addi $sp, $sp, 4
+    
+    bne $v0, $t8, draw_column_and_create
+    
+    addi $sp, $sp, -4   #save variable that is temporarily used
+    sw $t3, 0($sp)
+    addi $sp, $sp, -4   #save variable that is temporarily used
+    sw $t2, 0($sp)
+    
+    addi $t3, $t3, 1
+    addi $t2, $t2, 2
+    jal get_display_pixel
+    
+    lw $t2, 0($sp)
+    addi $sp, $sp, 4
+    lw $t3, 0($sp)
+    addi $sp, $sp, 4
+    
+    bne $v0, $t8, draw_column_and_create
+    
+    j jump_s
+    
+    vertical_s:
     addi $sp, $sp, -4   #save variable that is temporarily used
     sw $t3, 0($sp)
     addi $t3, $t3, 3
@@ -749,9 +914,11 @@ respond_to_s:
     
     bne $v0, $t8, draw_column_and_create
     
+    jump_s:
+    
     addi $t3, $t3, 1 # configure so column is falling
     
-    jal draw_column
+    jal draw_shape
     
     j game_loop
 
@@ -1180,7 +1347,7 @@ check_all_loop:
   bge $s3, $s4, check_all_end
   add $t2, $zero, $s3
   add $t3, $zero, $s2
-  jal check_column_colours
+  jal check_colour
   addi $s3, $s3, 1
   j check_all_loop
 check_all_end:
